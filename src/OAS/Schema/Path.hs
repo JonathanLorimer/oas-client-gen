@@ -5,10 +5,17 @@ module OAS.Schema.Path where
 import Data.List.NonEmpty (NonEmpty)
 import Data.Map.Strict (Map)
 import Data.Text (Text)
+import OAS.Schema.ExternalDocs (ExternalDocs)
+import OAS.Schema.Parameter (Parameter)
 import OAS.Schema.Ref (OrRef)
-import OAS.Schema.Response (Response, ResponseType)
+import OAS.Schema.RequestBody (RequestBody)
+import OAS.Schema.Response (Responses)
 import OAS.Schema.RuntimeExpression (RuntimeExpression)
 import OAS.Schema.Server (Server)
+
+type Paths = Map Text Path
+
+type Callback = Map RuntimeExpression Path
 
 data Path = Path
   { ref :: Maybe Text
@@ -29,14 +36,9 @@ data Operation = Operation
   , summary :: Maybe Text
   , description :: Maybe Text
   , externalDocs :: Maybe ExternalDocs
-  , operationId :: Text
-  , parameters :: OrRef Parameter
-  , requestBody :: OrRef RequestBody
-  , responses :: Map ResponseType (OrRef Response)
-  , callbacks :: Map Text (OrRef (Map RuntimeExpression Path))
-  }
-
-data ExternalDocs = ExternalDocs
-  { description :: Maybe Text
-  , url :: Text
+  , operationId :: Maybe Text
+  , parameters :: Maybe (OrRef Parameter)
+  , requestBody :: Maybe (OrRef RequestBody)
+  , responses :: Responses
+  , callbacks :: Map Text (OrRef Callback)
   }

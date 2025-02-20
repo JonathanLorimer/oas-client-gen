@@ -5,7 +5,8 @@ module OAS.Schema.Response where
 import Data.Map.Strict (Map)
 import Data.Text (Text)
 import Network.HTTP.Types.Status (Status)
-import OAS.Schema.Header (Header)
+import OAS.Schema.Header (Header, MediaType)
+import OAS.Schema.Link (Link)
 import OAS.Schema.Ref (OrRef)
 
 data Response = Response
@@ -16,3 +17,5 @@ data Response = Response
   }
 
 data ResponseType = Default | ForStatus Status
+
+type Responses = Map ResponseType Response

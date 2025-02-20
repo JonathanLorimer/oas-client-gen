@@ -6,6 +6,7 @@ import Data.Map.Strict (Map)
 import Data.Text (Text)
 import OAS.Schema.Example (Example)
 import OAS.Schema.Ref (OrRef)
+import OAS.Schema.SchemaObject (Schema)
 
 data Header = Header
   { description :: Text
@@ -31,5 +32,5 @@ data MediaType = MediaType
 
 data Encoding = Encoding
   { contentType :: [Text]
-  , headers :: Map Text
+  , headers :: Map Text Header
   }

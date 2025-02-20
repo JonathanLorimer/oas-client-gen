@@ -50,7 +50,9 @@ common common-opts
     , base
     , bytestring
     , containers
+    , deriving-aeson
     , http-types
+    , scientific
     , text
     , unordered-containers
 
@@ -62,15 +64,22 @@ library
 
   -- cabal-fmt: expand src
   exposed-modules:
+    OAS.Schema.Component
     OAS.Schema.Example
+    OAS.Schema.ExternalDocs
     OAS.Schema.Header
     OAS.Schema.Info
+    OAS.Schema.Link
     OAS.Schema.OpenAPI
+    OAS.Schema.Parameter
     OAS.Schema.Path
     OAS.Schema.Ref
+    OAS.Schema.RequestBody
     OAS.Schema.Response
     OAS.Schema.RuntimeExpression
+    OAS.Schema.SchemaObject
     OAS.Schema.Server
+    OAS.Schema.Tag
 
   hs-source-dirs:  src
 
