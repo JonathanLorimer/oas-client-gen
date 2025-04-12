@@ -8,9 +8,9 @@ import Deriving.Aeson
 import OAS.Schema.Header (MediaType)
 
 data RequestBody = RequestBody
-  { description :: Text
+  { description :: Maybe Text
   , content :: Map Text MediaType
-  , required :: Bool
+  , required :: Maybe Bool
   }
   deriving (Show, Eq, Generic)
   deriving

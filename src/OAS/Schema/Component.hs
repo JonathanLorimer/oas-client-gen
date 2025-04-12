@@ -10,7 +10,7 @@ import OAS.Schema.ExternalDocs (ExternalDocs)
 import OAS.Schema.Header (Header)
 import OAS.Schema.Link (Link)
 import OAS.Schema.Parameter (Parameter)
-import OAS.Schema.Path (Callback, Path)
+import OAS.Schema.Path (Callback, Paths)
 import OAS.Schema.Ref (OrRef)
 import OAS.Schema.RequestBody (RequestBody)
 import OAS.Schema.Response (Response)
@@ -18,17 +18,17 @@ import OAS.Schema.SchemaObject (Schema)
 import OAS.Schema.SecurityScheme (SecurityScheme)
 
 data ComponentObject = ComponentObject
-  { schemas :: Map Text Schema
-  , responses :: Map Text (OrRef Response)
-  , parameters :: Map Text (OrRef Parameter)
-  , examples :: Map Text (OrRef Example)
-  , requestBodies :: Map Text (OrRef RequestBody)
-  , headers :: Map Text (OrRef Header)
-  , securitySchemes :: Map Text (OrRef SecurityScheme)
-  , links :: Map Text (OrRef Link)
-  , callbacks :: Map Text (OrRef Callback)
-  , pathItems :: Map Text Path
-  , externalDocs :: ExternalDocs
+  { schemas :: Maybe (Map Text Schema)
+  , responses :: Maybe (Map Text (OrRef Response))
+  , parameters :: Maybe (Map Text (OrRef Parameter))
+  , examples :: Maybe (Map Text (OrRef Example))
+  , requestBodies :: Maybe (Map Text (OrRef RequestBody))
+  , headers :: Maybe (Map Text (OrRef Header))
+  , securitySchemes :: Maybe (Map Text (OrRef SecurityScheme))
+  , links :: Maybe (Map Text (OrRef Link))
+  , callbacks :: Maybe (Map Text (OrRef Callback))
+  , pathItems :: Maybe Paths
+  , externalDocs :: Maybe ExternalDocs
   }
   deriving (Show, Eq, Generic)
   deriving

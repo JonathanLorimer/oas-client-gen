@@ -17,9 +17,9 @@ import Text.Read (readMaybe)
 
 data Response = Response
   { description :: Text
-  , headers :: Map Text (OrRef Header)
+  , headers :: Maybe (Map Text (OrRef Header))
   , content :: Map Text MediaType
-  , links :: Map Text (OrRef Link)
+  , links :: Maybe (Map Text (OrRef Link))
   }
   deriving (Show, Eq, Generic)
   deriving
@@ -27,7 +27,16 @@ data Response = Response
     via CustomJSON '[OmitNothingFields] Response
 
 data ResponseType = Default | ForStatus Natural
-  deriving (Eq, Ord, Show, Generic, FromJSONKey)
+  deriving (Eq, Ord, Show, Generic)
+
+instance FromJSONKey ResponseType where
+  fromJSONKey = FromJSONKeyText parseText
+   where
+    parseText :: Text -> ResponseType
+    parseText "default" = Default
+    parseText t = case readMaybe (T.unpack t) of
+      Just n -> ForStatus n
+      Nothing -> error $ "Invalid ResponseType: " ++ T.unpack t
 
 instance ToJSONKey ResponseType where
   toJSONKey = toJSONKeyText textFunc

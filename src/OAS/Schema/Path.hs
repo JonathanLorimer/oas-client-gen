@@ -30,7 +30,7 @@ data Path = Path
   , options :: Maybe Operation
   , trace :: Maybe Operation
   , servers :: [Server]
-  , parameters :: OrRef Parameter
+  , parameters :: Maybe (OrRef Parameter)
   }
   deriving (Eq, Show)
 
@@ -46,7 +46,7 @@ instance FromJSON Path where
     options <- o .:? "options"
     trace <- o .:? "trace"
     servers <- o .:? "servers" .!= []
-    parameters <- o .: "parameters"
+    parameters <- o .:? "parameters"
 
     pure $ Path{..}
 
@@ -73,7 +73,7 @@ instance ToJSON Path where
     notNull _ = True
 
 data Operation = Operation
-  { tags :: [Text]
+  { tags :: Maybe (NonEmpty Text)
   , summary :: Maybe Text
   , description :: Maybe Text
   , externalDocs :: Maybe ExternalDocs
@@ -81,7 +81,7 @@ data Operation = Operation
   , parameters :: Maybe (OrRef Parameter)
   , requestBody :: Maybe (OrRef RequestBody)
   , responses :: Responses
-  , callbacks :: Map Text (OrRef Callback)
+  , callbacks :: Maybe (Map Text (OrRef Callback))
   }
   deriving (Show, Eq, Generic)
   deriving

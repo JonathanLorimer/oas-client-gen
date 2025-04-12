@@ -54,11 +54,6 @@ data Schema = Schema
   }
   deriving (Show, Eq)
 
--- deriving
---   (FromJSON, ToJSON)
---   via CustomJSON '[OmitNothingFields] Schema
-
--- Custom JSON instances for Schema to avoid infinite recursion
 instance FromJSON Schema where
   parseJSON = withObject "Schema" $ \o -> do
     discriminator <- o .:? "discriminator"

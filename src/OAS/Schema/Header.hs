@@ -38,9 +38,9 @@ newtype HeaderContent = HeaderContent {content :: Map Text MediaType}
     via CustomJSON '[OmitNothingFields] HeaderContent
 
 data MediaType = MediaType
-  { schema :: Maybe Schema
-  , examples :: Map Text (OrRef Example)
-  , encoding :: Map Text Encoding
+  { schema :: Maybe (OrRef Schema)
+  , examples :: Maybe (Map Text (OrRef Example))
+  , encoding :: Maybe (Map Text Encoding)
   }
   deriving (Show, Eq, Generic)
   deriving

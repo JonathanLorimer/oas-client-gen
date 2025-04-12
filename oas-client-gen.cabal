@@ -90,7 +90,9 @@ executable oas-client-gen
   import:         common-opts
   main-is:        Main.hs
   hs-source-dirs: app
-  build-depends:  oas-client-gen
+  build-depends:
+    , oas-client-gen
+    , pretty-simple
 
 test-suite oas-client-gen-tests
   import:         common-opts

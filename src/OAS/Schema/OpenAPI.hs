@@ -4,6 +4,7 @@ module OAS.Schema.OpenAPI where
 
 import Data.Map.Strict (Map)
 import Data.Text (Text)
+import Deriving.Aeson
 import OAS.Schema.Component (ComponentObject)
 import OAS.Schema.Info (Info)
 import OAS.Schema.Path (Path, Paths)
@@ -16,8 +17,12 @@ data OpenAPISpec = OpenAPISpec
   , info :: Info
   , jsonSchemaDialect :: Maybe Text
   , servers :: Maybe [Server]
-  , paths :: Paths
-  , webhooks :: Paths
+  , paths :: Maybe Paths
+  , webhooks :: Maybe Paths
   , components :: ComponentObject
-  , tags :: [Tag]
+  , tags :: Maybe [Tag]
   }
+  deriving (Show, Eq, Generic)
+  deriving
+    (FromJSON, ToJSON)
+    via CustomJSON '[OmitNothingFields] OpenAPISpec
