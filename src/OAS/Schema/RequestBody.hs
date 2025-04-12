@@ -4,6 +4,7 @@ module OAS.Schema.RequestBody where
 
 import Data.Map.Strict (Map)
 import Data.Text (Text)
+import Deriving.Aeson
 import OAS.Schema.Header (MediaType)
 
 data RequestBody = RequestBody
@@ -11,3 +12,7 @@ data RequestBody = RequestBody
   , content :: Map Text MediaType
   , required :: Bool
   }
+  deriving (Show, Eq, Generic)
+  deriving
+    (FromJSON, ToJSON)
+    via CustomJSON '[] RequestBody

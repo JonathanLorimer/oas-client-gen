@@ -2,9 +2,11 @@
 
 module OAS.Schema.Path where
 
+import Data.Aeson
 import Data.List.NonEmpty (NonEmpty)
 import Data.Map.Strict (Map)
 import Data.Text (Text)
+import Deriving.Aeson
 import OAS.Schema.ExternalDocs (ExternalDocs)
 import OAS.Schema.Parameter (Parameter)
 import OAS.Schema.Ref (OrRef)
@@ -30,6 +32,45 @@ data Path = Path
   , servers :: [Server]
   , parameters :: OrRef Parameter
   }
+  deriving (Eq, Show)
+
+instance FromJSON Path where
+  parseJSON = withObject "Path" $ \o -> do
+    ref <- o .:? "$ref"
+    summary <- o .:? "summary"
+    description <- o .:? "description"
+    get <- o .:? "get"
+    put <- o .:? "put"
+    post <- o .:? "post"
+    delete <- o .:? "delete"
+    options <- o .:? "options"
+    trace <- o .:? "trace"
+    servers <- o .:? "servers" .!= []
+    parameters <- o .: "parameters"
+
+    pure $ Path{..}
+
+instance ToJSON Path where
+  toJSON Path{..} =
+    object $
+      filter
+        notNull
+        [ "$ref" .= ref
+        , "summary" .= summary
+        , "description" .= description
+        , "get" .= get
+        , "put" .= put
+        , "post" .= post
+        , "delete" .= delete
+        , "options" .= options
+        , "trace" .= trace
+        , "servers" .= servers
+        , "parameters" .= parameters
+        ]
+   where
+    notNull (_, Null) = False
+    notNull (_, Array a) = not (null a)
+    notNull _ = True
 
 data Operation = Operation
   { tags :: [Text]
@@ -42,3 +83,7 @@ data Operation = Operation
   , responses :: Responses
   , callbacks :: Map Text (OrRef Callback)
   }
+  deriving (Show, Eq, Generic)
+  deriving
+    (FromJSON, ToJSON)
+    via CustomJSON '[OmitNothingFields] Operation
