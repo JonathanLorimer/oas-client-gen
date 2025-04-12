@@ -6,7 +6,9 @@ import Data.Aeson (FromJSON, ToJSON)
 import Data.Map.Strict (Map)
 import Data.Maybe (Maybe)
 import Data.Text (Text)
+import Deriving.Aeson
 import GHC.Generics (Generic)
+import OAS.Aeson.Modifiers
 
 -- | The type of security scheme
 data SecuritySchemeType
@@ -16,6 +18,9 @@ data SecuritySchemeType
   | OAuth2
   | OpenIdConnect
   deriving (Show, Eq, Generic)
+  deriving
+    (FromJSON, ToJSON)
+    via CustomJSON '[ConstructorTagModifier '[ToLower]] SecuritySchemeType
 
 -- | The location of the API key
 data ApiKeyLocation
@@ -23,6 +28,9 @@ data ApiKeyLocation
   | InHeader
   | InCookie
   deriving (Show, Eq, Generic)
+  deriving
+    (FromJSON, ToJSON)
+    via CustomJSON '[ConstructorTagModifier '[StripPrefix "In", ToLower]] ApiKeyLocation
 
 -- | OAuth Flow Object
 data OAuthFlow = OAuthFlow
@@ -32,6 +40,9 @@ data OAuthFlow = OAuthFlow
   , scopes :: Map Text Text
   }
   deriving (Show, Eq, Generic)
+  deriving
+    (FromJSON, ToJSON)
+    via CustomJSON '[OmitNothingFields] OAuthFlow
 
 -- | OAuth Flows Object
 data OAuthFlows = OAuthFlows
@@ -41,6 +52,13 @@ data OAuthFlows = OAuthFlows
   , authorizationCodeFlow :: Maybe OAuthFlow
   }
   deriving (Show, Eq, Generic)
+  deriving
+    (FromJSON, ToJSON)
+    via CustomJSON
+          '[ OmitNothingFields
+           , FieldLabelModifier '[StripSuffix "Flow"]
+           ]
+          OAuthFlows
 
 -- | The main SecurityScheme type
 data SecurityScheme = SecurityScheme
@@ -54,3 +72,10 @@ data SecurityScheme = SecurityScheme
   , schemeOpenIdConnectUrl :: Maybe Text -- REQUIRED for OpenIdConnect
   }
   deriving (Show, Eq, Generic)
+  deriving
+    (FromJSON, ToJSON)
+    via CustomJSON
+          '[ OmitNothingFields
+           , FieldLabelModifier '[StripPrefix "scheme", LowerFirst]
+           ]
+          SecurityScheme

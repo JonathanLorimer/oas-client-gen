@@ -64,6 +64,8 @@ library
 
   -- cabal-fmt: expand src
   exposed-modules:
+    OAS.Aeson.Modifiers
+    OAS.Schema.Callback
     OAS.Schema.Component
     OAS.Schema.Example
     OAS.Schema.ExternalDocs
@@ -78,6 +80,7 @@ library
     OAS.Schema.Response
     OAS.Schema.RuntimeExpression
     OAS.Schema.SchemaObject
+    OAS.Schema.SecurityScheme
     OAS.Schema.Server
     OAS.Schema.Tag
 
