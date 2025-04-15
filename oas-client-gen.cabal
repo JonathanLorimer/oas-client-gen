@@ -49,6 +49,7 @@ common common-opts
     , aeson
     , base
     , bytestring
+    , casing
     , containers
     , deriving-aeson
     , http-types
