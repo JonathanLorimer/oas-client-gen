@@ -10,7 +10,7 @@ import OAS.Schema.ExternalDocs (ExternalDocs)
 import OAS.Schema.Header (Header)
 import OAS.Schema.Link (Link)
 import OAS.Schema.Parameter (Parameter)
-import OAS.Schema.Path (Callback, Paths)
+import OAS.Schema.Path (Callback, Path)
 import OAS.Schema.Ref (OrRef)
 import OAS.Schema.RequestBody (RequestBody)
 import OAS.Schema.Response (Response)
@@ -27,7 +27,7 @@ data ComponentObject = ComponentObject
   , securitySchemes :: Maybe (Map Text (OrRef SecurityScheme))
   , links :: Maybe (Map Text (OrRef Link))
   , callbacks :: Maybe (Map Text (OrRef Callback))
-  , pathItems :: Maybe Paths
+  , pathItems :: Maybe (Map Text Path)
   , externalDocs :: Maybe ExternalDocs
   }
   deriving (Show, Eq, Generic)

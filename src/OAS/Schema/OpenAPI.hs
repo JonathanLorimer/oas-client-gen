@@ -7,7 +7,7 @@ import Data.Text (Text)
 import Deriving.Aeson
 import OAS.Schema.Component (ComponentObject)
 import OAS.Schema.Info (Info)
-import OAS.Schema.Path (Path, Paths)
+import OAS.Schema.Path (Paths)
 import OAS.Schema.Server (Server)
 import OAS.Schema.Tag (Tag)
 

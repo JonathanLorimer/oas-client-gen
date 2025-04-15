@@ -1,31 +1,80 @@
 module OAS.Generator.Endpoints where
 
+import Control.Monad (join)
 import Data.Bifunctor (Bifunctor)
 import Data.ByteString.Lazy (ByteString)
 import Data.Functor.Contravariant
+import Data.Map (Map)
+import Data.Map qualified as M
+import Data.Maybe (catMaybes)
 import Data.Profunctor (Profunctor (..))
 import Data.Text (Text)
+import Data.Traversable (for)
 import Network.HTTP.Types
-import OAS.Generator.OASType (OASType)
+import OAS.Generator.Environment (Environment (..), fromRef, fromRefRec)
+import OAS.Generator.OASType (OASType, SchemaResult (..), filterEmptySchema, fromOrRefSchema)
+import OAS.Schema.Header (MediaType (..))
+import OAS.Schema.Path (Operation (..), Path (..))
+import OAS.Schema.RequestBody
+import OAS.Schema.Response
 
 data Endpoint = Endpoint
   { method :: StdMethod
   , path :: Text
-  , requestType :: OASType
-  , responseType :: OASType
+  , requestType :: Maybe OASType
+  , responseType :: Map ResponseType SchemaResult
   }
+  deriving (Eq, Ord, Show)
+
+fromPath :: Environment -> Text -> Path -> Either Text [Endpoint]
+fromPath env url p =
+  let
+    operations =
+      catMaybes
+        [ (GET,) <$> p.get
+        , (PUT,) <$> p.put
+        , (POST,) <$> p.post
+        , (DELETE,) <$> p.delete
+        , (OPTIONS,) <$> p.options
+        , (TRACE,) <$> p.trace
+        ]
+  in
+    for operations \(stdMethod, op) -> do
+      requestType <-
+        join <$> for op.requestBody \orRef -> do
+          rb <- fromRefRec env.requestBodies orRef
+          traverse
+            (fromOrRefSchema env.schemas op.summary)
+            (M.lookup "application/json" rb.content >>= (.schema))
+
+      responseType <-
+        M.mapMaybe id <$> for op.responses \res ->
+          traverse
+            (fromOrRefSchema env.schemas op.summary)
+            (M.lookup "application/json" res.content >>= (.schema))
+
+      pure
+        Endpoint
+          { method = stdMethod
+          , path = url
+          , requestType =
+              requestType >>= \case
+                EmptySchema -> Nothing
+                (Type oasTy) -> Just oasTy
+          , responseType = responseType
+          }
 
 -- This is the code to be generated
 --
--- data Endpoint req res = Endpoint
+-- data Endpoint p req res = Endpoint
 --   { method :: StdMethod
---   , path :: Text
+--   , path :: p -> Text
 --   , toRequestBody :: req -> ByteString
 --   , fromRequestBody :: Status -> ByteString -> Either Text res
 --   }
 --   deriving (Functor)
 
--- instance Profunctor Endpoint where
+-- instance Profunctor (Endpoint p) where
 --   dimap f g endpoint =
 --     endpoint
 --       { toRequestBody = endpoint.toRequestBody . f

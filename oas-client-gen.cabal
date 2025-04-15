@@ -53,8 +53,8 @@ common common-opts
     , containers
     , deriving-aeson
     , http-types
-    , scientific
     , profunctors
+    , scientific
     , text
     , unordered-containers
 
@@ -67,6 +67,9 @@ library
   -- cabal-fmt: expand src
   exposed-modules:
     OAS.Aeson.Modifiers
+    OAS.Generator.Endpoints
+    OAS.Generator.Environment
+    OAS.Generator.OASType
     OAS.Schema.Callback
     OAS.Schema.Component
     OAS.Schema.Example

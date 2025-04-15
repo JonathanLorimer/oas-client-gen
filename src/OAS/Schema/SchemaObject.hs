@@ -54,6 +54,47 @@ data Schema = Schema
   }
   deriving (Show, Eq)
 
+emptySchema :: Schema
+emptySchema =
+  Schema
+    { discriminator = Nothing
+    , xml = Nothing
+    , externalDocs = Nothing
+    , example = Nothing
+    , examples = []
+    , title = Nothing
+    , description = Nothing
+    , required = []
+    , nullable = Nothing
+    , allOf = Nothing
+    , oneOf = Nothing
+    , anyOf = Nothing
+    , not = Nothing
+    , properties = M.empty
+    , additionalProperties = Nothing
+    , readOnly = Nothing
+    , writeOnly = Nothing
+    , deprecated = Nothing
+    , maxProperties = Nothing
+    , minProperties = Nothing
+    , def = Nothing
+    , schemaType = Nothing
+    , format = Nothing
+    , items = Nothing
+    , maximum = Nothing
+    , exclusiveMaximum = Nothing
+    , minimum = Nothing
+    , exclusiveMinimum = Nothing
+    , maxLength = Nothing
+    , minLength = Nothing
+    , pattern = Nothing
+    , maxItems = Nothing
+    , minItems = Nothing
+    , uniqueItems = Nothing
+    , enum = Nothing
+    , multipleOf = Nothing
+    }
+
 instance FromJSON Schema where
   parseJSON = withObject "Schema" $ \o -> do
     discriminator <- o .:? "discriminator"
