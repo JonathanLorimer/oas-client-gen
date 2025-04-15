@@ -53,6 +53,7 @@ common common-opts
     , deriving-aeson
     , http-types
     , scientific
+    , profunctors
     , text
     , unordered-containers
 
