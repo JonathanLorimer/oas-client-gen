@@ -8,6 +8,7 @@ import Data.Text (Text)
 import Data.Traversable (for)
 import OAS.Generator.Endpoints (Endpoint, fromPath)
 import OAS.Generator.Environment (Environment (..), constructEnvironment, fromRef)
+import OAS.Generator.OASType (emptyTypeGraph, fromRefSchemaT, runSchemaT)
 import OAS.Schema.OpenAPI (OpenAPISpec (..))
 import System.IO (IOMode (..), withFile)
 import Text.Pretty.Simple (pPrint)
@@ -24,9 +25,10 @@ main = do
       Just p -> do
         let
           env = constructEnvironment parsed.components
-          endpoints :: Either Text [Endpoint] =
+        endpoints <-
+          flip runSchemaT emptyTypeGraph $
             join <$> for (M.toList p) \(url, orRef) -> do
-              path <- fromRef env.paths orRef
+              path <- fromRefSchemaT env.paths orRef
               fromPath env url path
 
         pPrint endpoints

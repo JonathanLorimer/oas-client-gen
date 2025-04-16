@@ -53,6 +53,7 @@ common common-opts
     , containers
     , deriving-aeson
     , http-types
+    , mtl
     , profunctors
     , scientific
     , text

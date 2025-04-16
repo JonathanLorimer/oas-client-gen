@@ -12,7 +12,14 @@ import Data.Text (Text)
 import Data.Traversable (for)
 import Network.HTTP.Types
 import OAS.Generator.Environment (Environment (..), fromRef, fromRefRec)
-import OAS.Generator.OASType (OASType, SchemaResult (..), filterEmptySchema, fromOrRefSchema)
+import OAS.Generator.OASType
+  ( OASType
+  , SchemaResult (..)
+  , SchemaT
+  , filterEmptySchema
+  , fromOrRefSchema
+  , fromRefRecSchemaT
+  )
 import OAS.Schema.Header (MediaType (..))
 import OAS.Schema.Path (Operation (..), Path (..))
 import OAS.Schema.RequestBody
@@ -26,7 +33,7 @@ data Endpoint = Endpoint
   }
   deriving (Eq, Ord, Show)
 
-fromPath :: Environment -> Text -> Path -> Either Text [Endpoint]
+fromPath :: (Monad m) => Environment -> Text -> Path -> SchemaT m [Endpoint]
 fromPath env url p =
   let
     operations =
@@ -42,7 +49,7 @@ fromPath env url p =
     for operations \(stdMethod, op) -> do
       requestType <-
         join <$> for op.requestBody \orRef -> do
-          rb <- fromRefRec env.requestBodies orRef
+          rb <- fromRefRecSchemaT env.requestBodies orRef
           traverse
             (fromOrRefSchema env.schemas op.summary)
             (M.lookup "application/json" rb.content >>= (.schema))

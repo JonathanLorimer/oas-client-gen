@@ -28,17 +28,17 @@ constructEnvironment co =
     , responses = maybe M.empty (M.mapKeys ("#/components/responses/" <>)) co.responses
     }
 
-fromRef :: Map Text a -> OrRef a -> Either Text a
+fromRef :: Map Text a -> OrRef a -> Either Ref a
 fromRef env = \case
   ByReference r -> case M.lookup r.ref env of
-    Nothing -> Left $ "Dangling reference: " <> T.pack (show r)
+    Nothing -> Left r
     Just s -> pure s
   Direct s -> pure s
 
 -- | TODO: Add a simple infinite recursion counter here.
-fromRefRec :: Map Text (OrRef a) -> OrRef a -> Either Text a
+fromRefRec :: Map Text (OrRef a) -> OrRef a -> Either Ref a
 fromRefRec env = \case
   ByReference r -> case M.lookup r.ref env of
-    Nothing -> Left $ "Dangling reference: " <> T.pack (show r)
+    Nothing -> Left r
     Just s -> fromRefRec env s
   Direct s -> pure s
