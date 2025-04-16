@@ -68,7 +68,8 @@ library
   -- cabal-fmt: expand src
   exposed-modules:
     OAS.Aeson.Modifiers
-    OAS.Generator.Endpoints
+    OAS.Generator.Endpoint
+    OAS.Generator.Module
     OAS.Generator.Environment
     OAS.Generator.OASType
     OAS.Schema.Callback

@@ -1,4 +1,4 @@
-module OAS.Generator.Endpoints where
+module OAS.Generator.Endpoint where
 
 import Control.Monad (join)
 import Data.Bifunctor (Bifunctor)

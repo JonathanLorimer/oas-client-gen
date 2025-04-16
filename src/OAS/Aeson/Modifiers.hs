@@ -1,6 +1,6 @@
 module OAS.Aeson.Modifiers where
 
-import Data.Char (toLower)
+import Data.Char (toLower, toUpper)
 import Deriving.Aeson
 
 data ToLower
@@ -11,5 +11,14 @@ instance StringModifier ToLower where
 data LowerFirst
 
 instance StringModifier LowerFirst where
-  getStringModifier "" = ""
-  getStringModifier (x : xs) = toLower x : xs
+  getStringModifier = lowerFirst
+
+lowerFirst :: String -> String
+lowerFirst = onFirst toLower
+
+upperFirst :: String -> String
+upperFirst = onFirst toUpper
+
+onFirst :: (Char -> Char) -> String -> String
+onFirst _ "" = ""
+onFirst f (x : xs) = f x : xs

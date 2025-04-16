@@ -6,8 +6,9 @@ import Data.ByteString qualified as BS
 import Data.Map qualified as M
 import Data.Text (Text)
 import Data.Traversable (for)
-import OAS.Generator.Endpoints (Endpoint, fromPath)
+import OAS.Generator.Endpoint (Endpoint, fromPath)
 import OAS.Generator.Environment (Environment (..), constructEnvironment, fromRef)
+import OAS.Generator.Module (makeModules)
 import OAS.Generator.OASType (emptyTypeGraph, fromRefSchemaT, runSchemaT)
 import OAS.Schema.OpenAPI (OpenAPISpec (..))
 import System.IO (IOMode (..), withFile)
@@ -25,10 +26,16 @@ main = do
       Just p -> do
         let
           env = constructEnvironment parsed.components
-        endpoints <-
+        (eitherEps, tyInfo) <-
           flip runSchemaT emptyTypeGraph $
             join <$> for (M.toList p) \(url, orRef) -> do
               path <- fromRefSchemaT env.paths orRef
               fromPath env url path
 
-        pPrint endpoints
+        case eitherEps of
+          Right eps -> do
+            let
+              modules = makeModules eps tyInfo
+
+            pPrint modules
+          Left err -> pPrint err
