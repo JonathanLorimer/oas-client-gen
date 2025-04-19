@@ -10,7 +10,7 @@ version:       0.0.0.0
 maintainer:    Jonathan Lorimer
 build-type:    Simple
 
-common common-opts
+library
   default-extensions:
     BlockArguments
     ConstraintKinds
@@ -48,6 +48,8 @@ common common-opts
     , casing
     , containers
     , deriving-aeson
+    , directory
+    , filepath
     , http-types
     , mtl
     , profunctors
@@ -58,14 +60,12 @@ common common-opts
   -- Codecs
   default-language:   Haskell2010
 
-library
-  import:          common-opts
-
   -- cabal-fmt: expand src
   exposed-modules:
     OAS.Aeson.Modifiers
     OAS.Generator.Endpoint
     OAS.Generator.Environment
+    OAS.Generator.FileSystem
     OAS.Generator.Module
     OAS.Generator.OASType
     OAS.Schema.Callback
@@ -87,30 +87,40 @@ library
     OAS.Schema.Server
     OAS.Schema.Tag
 
-  hs-source-dirs:  src
+  hs-source-dirs:     src
 
 library oas-client-base
-  hs-source-dirs:  base
+  hs-source-dirs:   base
+  default-language: Haskell2010
 
   -- cabal-fmt: expand base
-  exposed-modules: OAS.Base.Endpoint
+  exposed-modules:  OAS.Base.Endpoint
   build-depends:
     , base
     , bytestring
     , http-types
-    , text
     , profunctors
+    , text
 
 executable oas-client-gen
-  import:         common-opts
-  main-is:        Main.hs
-  hs-source-dirs: app
+  main-is:            Main.hs
+  hs-source-dirs:     app
+  default-extensions:
+    BlockArguments
+    ImportQualifiedPost
+    OverloadedRecordDot
+    TypeApplications
+
   build-depends:
+    , aeson
+    , base
+    , bytestring
+    , containers
     , oas-client-gen
     , pretty-simple
+    , text
 
 test-suite oas-client-gen-tests
-  import:         common-opts
   type:           exitcode-stdio-1.0
   hs-source-dirs: test
   ghc-options:
