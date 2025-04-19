@@ -19,6 +19,7 @@ import Control.Monad.State (StateT (..), modify)
 import Control.Monad.State.Class (MonadState)
 import Data.Bifunctor (Bifunctor (..))
 import Data.Functor ((<&>))
+import Data.List.NonEmpty (NonEmpty)
 import Data.List.NonEmpty qualified as NE
 import Data.Map (Map)
 import Data.Map.Lazy qualified as M
@@ -27,7 +28,7 @@ import Data.Set qualified as S
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Traversable (for)
-import OAS.Generator.Environment (fromRef, fromRefRec)
+import OAS.Generator.Environment (FromRefRecError (..), fromRef, fromRefRec)
 import OAS.Schema.Ref (OrRef (..), Ref (..))
 import OAS.Schema.SchemaObject (Items (..), Schema (..), SchemaType (..), emptySchema)
 import Text.Casing
@@ -57,7 +58,9 @@ data Record = Record
   deriving (Eq, Ord, Show)
 
 fromRefRecSchemaT :: (Monad m) => Map Text (OrRef a) -> OrRef a -> SchemaT m a
-fromRefRecSchemaT env = liftEither . first DanglingReference . fromRefRec env
+fromRefRecSchemaT env orRef = liftEither $ flip first (fromRefRec env orRef) \case
+  MissingRef r -> DanglingReference r
+  RefCycleDetected path -> ReferenceCycle path
 
 fromRefSchemaT :: (Monad m) => Map Text a -> OrRef a -> SchemaT m a
 fromRefSchemaT env = liftEither . first DanglingReference . fromRef env
@@ -84,6 +87,7 @@ data SchemaError
   | MissingArrayTypes Schema
   | EmptyArray Schema
   | DanglingReference Ref
+  | ReferenceCycle (NonEmpty Text)
   deriving (Eq, Show)
 
 newtype SchemaT m a = SchemaT {action :: ExceptT SchemaError (StateT TypeInfo m) a}

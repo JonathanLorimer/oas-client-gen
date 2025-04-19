@@ -10,8 +10,12 @@
 --   that here.
 module OAS.Generator.Environment where
 
+import Data.List.NonEmpty (NonEmpty)
+import Data.List.NonEmpty qualified as NE
 import Data.Map (Map)
 import Data.Map qualified as M
+import Data.Set (Set)
+import Data.Set qualified as S
 import Data.Text (Text)
 import Data.Text qualified as T
 import OAS.Schema.Component (ComponentObject (..))
@@ -45,10 +49,20 @@ fromRef env = \case
     Just s -> pure s
   Direct s -> pure s
 
--- | TODO: Add a simple infinite recursion counter here.
-fromRefRec :: Map Text (OrRef a) -> OrRef a -> Either Ref a
-fromRefRec env = \case
-  ByReference r -> case M.lookup r.ref env of
-    Nothing -> Left r
-    Just s -> fromRefRec env s
-  Direct s -> pure s
+data FromRefRecError
+  = MissingRef Ref
+  | RefCycleDetected (NonEmpty Text)
+
+fromRefRec :: forall a. Map Text (OrRef a) -> OrRef a -> Either FromRefRecError a
+fromRefRec env = go S.empty []
+ where
+  go :: Set Text -> [Text] -> OrRef a -> Either FromRefRecError a
+  go visited path = \case
+    ByReference r
+      | r.ref `S.member` visited ->
+          -- We've detected a cycle - return the path
+          Left . RefCycleDetected $ r.ref NE.:| reverse path
+      | otherwise -> case M.lookup r.ref env of
+          Nothing -> Left . MissingRef $ r
+          Just s -> go (S.insert r.ref visited) (r.ref : path) s
+    Direct s -> Right s
