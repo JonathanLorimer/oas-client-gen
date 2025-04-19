@@ -1,3 +1,13 @@
+-- |
+--   Module      : OAS.Generator.Environment
+--   Description : Types and functions for representing open-api schema components
+--   Copyright   : (c) Jonathan Lorimer, 2025
+--   License     : BSD3
+--   Maintainer  : jonathanlorimer@pm.me
+--
+--   The open-api specification uses a "components" object for de-duplication. This
+--   acts like an environment in a programming languages evaluator, so we represent
+--   that here.
 module OAS.Generator.Environment where
 
 import Data.Map (Map)

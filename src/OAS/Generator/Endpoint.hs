@@ -1,3 +1,15 @@
+-- |
+--   Module      : OAS.Generator.Endpoint
+--   Description : Types and functions for representing an "endpoint"
+--   Copyright   : (c) Jonathan Lorimer, 2025
+--   License     : BSD3
+--   Maintainer  : jonathanlorimer@pm.me
+--
+--   The primary concern of this library is pulling endpoints out of the
+--   open-api specification, so that we can generate a haskell client for
+--   an api. This module, and specifically the 'Endpoint' type are supposed
+--   to be an abstract representation that can be used to generate Haskell
+--   source code.
 module OAS.Generator.Endpoint where
 
 import Control.Monad (join)

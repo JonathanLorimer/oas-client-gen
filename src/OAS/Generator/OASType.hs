@@ -1,3 +1,14 @@
+-- |
+--   Module      : OAS.Generator.OASType
+--   Description : Types and functions for representing open-api schema types
+--   Copyright   : (c) Jonathan Lorimer, 2025
+--   License     : BSD3
+--   Maintainer  : jonathanlorimer@pm.me
+--
+--   This module provides functions and types for representing open-api schema types.
+--   Specifically the 'OASType' aims to be an intermediate representation between the
+--   JSON oriented types in the open-api schema and Haskell. The main examples of
+--   where these types might come from are respone and request payloads.
 module OAS.Generator.OASType where
 
 import Control.Applicative ((<|>))

@@ -1,3 +1,14 @@
+-- |
+--   Module      : OAS.Generator.Module
+--   Description : Types and functions for tracking the generated module graph
+--   Copyright   : (c) Jonathan Lorimer, 2025
+--   License     : BSD3
+--   Maintainer  : jonathanlorimer@pm.me
+--
+--   This module provides functions and types for keeping track of the 'OASType's and 'Endpoint's
+--   defined in the open-api schema. Specifically it keeps track of their dependency relations
+--   so that we can generate a more granular module graph, which is a benefit for organization
+--   and aids GHC's compilation.
 module OAS.Generator.Module where
 
 import Data.Map (Map)
@@ -10,11 +21,18 @@ import Data.Text qualified as T
 import OAS.Generator.Endpoint
 import OAS.Generator.OASType
 
+-- | The key top level type that represents all module and dependency information
 data Modules = Modules
   { typeModule :: Map OASType [Text]
+  -- ^ A map from type to Haskell module path name (which implicitly encodes directory structure)
   , typeDependencies :: Map OASType (Set OASType)
+  -- ^ A dependency map, useful for determining which types need to be imported into the module
+  -- that defines a parent type
   , endpointModule :: Map Endpoint [Text]
+  -- ^ A map from endpoint to Haskell module path name
   , endpointDependencies :: Map Endpoint (Set OASType)
+  -- ^ A dependency map, useful for determining which types need to be imported into the module
+  -- that defines an endpoint
   }
   deriving (Eq, Ord, Show)
 
