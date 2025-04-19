@@ -82,20 +82,3 @@ fromPath env url p =
                 (Type oasTy) -> Just oasTy
           , responseType = responseType
           }
-
--- This is the code to be generated
---
--- data Endpoint p req res = Endpoint
---   { method :: StdMethod
---   , path :: p -> Text
---   , toRequestBody :: req -> ByteString
---   , fromRequestBody :: Status -> ByteString -> Either Text res
---   }
---   deriving (Functor)
-
--- instance Profunctor (Endpoint p) where
---   dimap f g endpoint =
---     endpoint
---       { toRequestBody = endpoint.toRequestBody . f
---       , fromRequestBody = \s b -> g <$> endpoint.fromRequestBody s b
---       }

@@ -65,8 +65,8 @@ library
   exposed-modules:
     OAS.Aeson.Modifiers
     OAS.Generator.Endpoint
-    OAS.Generator.Module
     OAS.Generator.Environment
+    OAS.Generator.Module
     OAS.Generator.OASType
     OAS.Schema.Callback
     OAS.Schema.Component
@@ -88,6 +88,18 @@ library
     OAS.Schema.Tag
 
   hs-source-dirs:  src
+
+library oas-client-base
+  hs-source-dirs:  base
+
+  -- cabal-fmt: expand base
+  exposed-modules: OAS.Base.Endpoint
+  build-depends:
+    , base
+    , bytestring
+    , http-types
+    , text
+    , profunctors
 
 executable oas-client-gen
   import:         common-opts
