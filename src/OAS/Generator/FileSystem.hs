@@ -20,6 +20,7 @@ import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import Network.HTTP.Types qualified as HTTP
 import OAS.Generator.Endpoint (Endpoint (..))
+import OAS.Generator.FileSystem.Utils (getTypeName, getTypeReference)
 import OAS.Generator.Module (Modules (..))
 import OAS.Generator.OASType (Key (..), OASPrimTy (..), OASType (..), Record (..), SchemaResult (..))
 import OAS.Schema.Response (ResponseType (..))
@@ -136,14 +137,6 @@ makeTypeImport modules ty = do
   tyName <- getTypeName ty
   pure $ "import " <> T.intercalate "." modulePath <> " (" <> tyName <> ")"
 
--- | Extract the type name from an OASType
-getTypeName :: OASType -> Maybe Text
-getTypeName (OASPrim _) = Nothing
-getTypeName (OASArray _) = Nothing
-getTypeName (OASMaybe _) = Nothing
-getTypeName (OASObject r) = Just r.constructor
-getTypeName (OASEnum name _) = Just name
-
 -- | Generate the complete module content
 generateModuleContent :: [Text] -> Text -> Text -> Text
 generateModuleContent modulePath imports code =
@@ -161,18 +154,6 @@ generateTypeDefinition = \case
   OASMaybe _ -> Nothing
   OASObject record -> Just $ generateRecordDefinition record
   OASEnum name types -> Just $ generateEnumDefinition name types
-
--- | Generate a reference to a type (to be used in other type definitions)
-getTypeReference :: OASType -> Text
-getTypeReference (OASPrim primTy) = case primTy of
-  PrimString -> "Text"
-  PrimInt -> "Int"
-  PrimFloat -> "Double"
-  PrimBool -> "Bool"
-getTypeReference (OASArray innerTy) = "[" <> getTypeReference innerTy <> "]"
-getTypeReference (OASMaybe innerTy) = "Maybe " <> getTypeReference innerTy
-getTypeReference (OASObject r) = r.constructor
-getTypeReference (OASEnum name _) = name
 
 -- | Generate a record type definition
 generateRecordDefinition :: Record -> Text
@@ -256,7 +237,7 @@ generateEnumDefinition name types =
     in
       constructorName <> " " <> getTypeReference ty
 
--- | Generate a FromJSON instance for an enum type
+-- TODO: fix this, need to use asum on the parsers for the variants
 generateEnumFromJSONInstance :: Text -> [OASType] -> [Text]
 generateEnumFromJSONInstance name types =
   [ ""

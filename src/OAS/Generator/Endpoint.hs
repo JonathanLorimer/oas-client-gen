@@ -37,11 +37,20 @@ import OAS.Schema.Path (Operation (..), Path (..))
 import OAS.Schema.RequestBody
 import OAS.Schema.Response
 
+data ResponseTypeInfo
+  = UnaryType ResponseType SchemaResult
+  | SumType {tyName :: Text, resultMap :: Map ResponseType (SchemaResult, Text)}
+  deriving (Eq, Ord, Show)
+
+-- TODO: Implement
+toResponseTypeDef :: ResponseTypeInfo -> Maybe Text
+toResponseTypeDef = undefined
+
 data Endpoint = Endpoint
   { method :: StdMethod
   , path :: Text
   , requestType :: Maybe OASType
-  , responseType :: Map ResponseType SchemaResult
+  , responseType :: ResponseTypeInfo
   }
   deriving (Eq, Ord, Show)
 

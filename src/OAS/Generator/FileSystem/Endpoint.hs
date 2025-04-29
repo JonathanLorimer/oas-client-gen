@@ -17,14 +17,17 @@ import Data.List.NonEmpty (NonEmpty (..))
 import Data.List.NonEmpty qualified as NE
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as M
-import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Maybe (catMaybes, fromMaybe, mapMaybe)
 import Data.Set (Set)
 import Data.Set qualified as S
 import Data.Text (Text)
 import Data.Text qualified as T
 import Network.HTTP.Types (StdMethod (..))
-import OAS.Generator.Endpoint (Endpoint (..))
-import OAS.Generator.OASType (OASPrimTy (..), OASType (..), SchemaResult (..))
+import Numeric.Natural (Natural)
+import OAS.Generator.Endpoint (Endpoint (..), ResponseTypeInfo (..), toResponseTypeDef)
+import OAS.Generator.FileSystem.PrettyPrint
+import OAS.Generator.FileSystem.Utils (getTypeReference)
+import OAS.Generator.OASType (OASPrimTy (..), OASType (..), Record (..), SchemaResult (..))
 import OAS.Schema.Response (ResponseType (..))
 import Text.Casing
 
@@ -32,31 +35,67 @@ import Text.Casing
 generateEndpointDefinition :: Endpoint -> Text
 generateEndpointDefinition endpoint =
   let
+    -- Endpoint name
     endpointPathPart = generateEndpointNamePathPart endpoint.path
     endpointMethodPart = generateEndpointNameMethodPart endpoint.method
     endpointName = endpointMethodPart <> endpointPathPart
+
+    -- Method
     methodDef = T.pack $ show endpoint.method
+
+    -- Path
     pathParamTyName = endpointPathPart <> "PathParam"
     p = generatePathDef endpoint.path pathParamTyName
-    requestTypeDef = generateRequestTypeDef endpoint.requestType
-    responseTypeDef = generateResponseTypeDef endpoint.responseType
 
-    typeSignature = generateTypeSignature pathParamTyName endpoint endpointName
+    -- Request
+    requestDef = generateRequestDef endpoint.requestType
+    requestType = maybe "()" getTypeReference endpoint.requestType
+
+    -- Response
+    responseDef = generateResponseDef endpoint.responseType
+    responseTypeName = case endpoint.responseType of
+      UnaryType _ EmptySchema -> "()"
+      UnaryType _ (Type oasType) -> getTypeReference oasType
+      SumType{tyName} -> tyName
+    responseTypeDef = toResponseTypeDef endpoint.responseType
+
+    -- Type
+    typeSignature =
+      generateTypeSignature
+        (fromMaybe "()" p.paramType)
+        requestType
+        responseTypeName
   in
-    maybe "" (<> "\n\n") p.paramType
-      <> T.unlines
-        [ typeSignature
-        , endpointName <> " = Endpoint"
-        , prettyRecord
-            2
-            ( "method = "
-                <> methodDef
-                  :| [ "path = " <> p.pathDef
-                     , "requestBody = " <> requestTypeDef
-                     , "responseBody = " <> responseTypeDef
-                     ]
-            )
+    fold $
+      catMaybes
+        [ p.paramType
+        , responseTypeDef
+        , Just $
+            T.unlines
+              [ endpointName <> " :: " <> typeSignature
+              , endpointName <> " = Endpoint"
+              , prettyRecord
+                  2
+                  ( "method = "
+                      <> methodDef
+                        :| [ "path = " <> p.pathDef
+                           , "requestBody = " <> requestDef
+                           , "responseBody = " <> responseDef
+                           ]
+                  )
+              ]
         ]
+
+-- | Generate a type signature for an endpoint function
+generateTypeSignature :: Text -> Text -> Text -> Text
+generateTypeSignature pathType reqType resType =
+  T.intercalate
+    " "
+    [ "Endpoint"
+    , pathType
+    , reqType
+    , resType
+    ]
 
 data PathPart = Static Text | Variable Text
   deriving (Eq, Ord, Show)
@@ -90,7 +129,7 @@ generateEndpointNameMethodPart :: StdMethod -> Text
 generateEndpointNameMethodPart = T.toLower . T.pack . show
 
 data PathDef = PathDef
-  { pathText :: Text
+  { pathDef :: Text
   , paramType :: Maybe Text
   }
 
@@ -110,12 +149,12 @@ generatePathDef path pathName =
     case NE.nonEmpty vars of
       Nothing ->
         PathDef
-          { pathText = "const $ fold\n" <> pieceList
+          { pathDef = "const $ fold\n" <> pieceList
           , paramType = Nothing
           }
       Just vs ->
         PathDef
-          { pathText = "\\pathParams -> fold\n" <> pieceList
+          { pathDef = "\\pathParams -> fold\n" <> pieceList
           , paramType =
               Just . fold $
                 [ "data "
@@ -126,43 +165,10 @@ generatePathDef path pathName =
                 ]
           }
 
--- TODO: Move these to pretty printing utils file
-quoted :: Text -> Text
-quoted t = "\"" <> t <> "\""
-
-prettyRecord :: Int -> NonEmpty Text -> Text
-prettyRecord = prettySurround '{' '}'
-
-prettyListWith :: Int -> [Text] -> Text
-prettyListWith indent ts = case NE.nonEmpty ts of
-  Nothing -> T.replicate indent " " <> "[]"
-  Just ne -> prettySurround '[' ']' indent ne
-
-prettySurround :: Char -> Char -> Int -> NonEmpty Text -> Text
-prettySurround beg end indent = \case
-  single :| [] ->
-    fold
-      [ indentText
-      , T.cons beg " "
-      , single
-      , T.snoc " " end
-      ]
-  x :| xs ->
-    fold
-      [ indentText <> T.cons beg " " <> x <> "\n"
-      , foldMap (\t -> indentText <> ", " <> t <> "\n") xs
-      , T.snoc indentText end
-      ]
- where
-  indentText = T.replicate indent " "
-
--- TODO: Fix below here
-
 -- | Generate the Haskell code for the request type
-generateRequestTypeDef :: Maybe OASType -> Text
-generateRequestTypeDef Nothing = "Nothing"
-generateRequestTypeDef (Just oasType) =
-  "Just (" <> typeToEncoder oasType <> ")"
+generateRequestDef :: Maybe OASType -> Text
+generateRequestDef Nothing = "const L.empty"
+generateRequestDef (Just oasType) = typeToEncoder oasType
 
 -- | Convert an OASType to its encoder expression
 typeToEncoder :: OASType -> Text
@@ -182,85 +188,79 @@ primTypeEncoder = \case
   PrimBool -> "encodeBool"
 
 -- | Generate the Haskell code for the response type
-generateResponseTypeDef :: Map ResponseType SchemaResult -> Text
-generateResponseTypeDef responseTypes =
-  if M.null responseTypes
-    then "const Nothing"
-    else
-      "\\statusCode -> case statusCode of\n"
-        <> T.intercalate "\n" (map responseTypeCaseDef (M.toList responseTypes))
-        <> "\n    _ -> Nothing"
+generateResponseDef :: ResponseTypeInfo -> Text
+generateResponseDef (UnaryType _ EmptySchema) = "\\_ _ -> ()"
+generateResponseDef (UnaryType Default _) = "\\_ -> first DefaultCaseParseError . decodeEither"
+generateResponseDef (UnaryType n _) =
+  let
+    n' = T.pack $ show n
+  in
+    T.unlines
+      [ "\\case"
+      , n' <> " -> \bs -> first StatusCaseParseError " <> n' <> " bs $ decodeEither bs"
+      , "s -> Left . UnexpectedResponse s"
+      ]
+generateResponseDef SumType{resultMap = responseTypes} =
+  let
+    withDefaultCase (res, ctor) = "_ -> const " <> schemaResultDecoder ctor res
+    errorDefaultCase = "s -> Left . UnexpectedResponse s"
+    defaultCase = maybe errorDefaultCase withDefaultCase (M.lookup Default responseTypes)
+
+    statusMap =
+      M.foldrWithKey
+        ( \key val acc -> case key of
+            Default -> acc
+            ForStatus s -> M.insert s val acc
+        )
+        M.empty
+        responseTypes
+    statusCases = T.intercalate "\n" (fmap (uncurry statusCaseDecoder) . M.toList . fmap snd $ statusMap)
+  in
+    if M.null responseTypes
+      then "const Nothing"
+      else
+        "\\case\n"
+          <> statusCases
+          <> "\n"
+          <> defaultCase
+
+schemaResultDecoder :: Text -> SchemaResult -> Text
+schemaResultDecoder ctor = \case
+  EmptySchema -> "pure " <> ctor
+  Type _ -> "bimap DefaultCaseParseError " <> ctor <> " . decodeEither"
 
 -- | Generate a case definition for a response type
-responseTypeCaseDef :: (ResponseType, SchemaResult) -> Text
-responseTypeCaseDef (responseType, schemaResult) =
+statusCaseDecoder :: Natural -> Text -> Text
+statusCaseDecoder status ctor =
   let
-    statusCodeMatch = case responseType of
-      Default -> "    _" -- Default case
-      ForStatus code -> "    " <> T.pack (show code)
-
-    decoderExpr = case schemaResult of
-      EmptySchema -> "Just (const ())"
-      Type oasType -> "Just (" <> typeToDecoder oasType <> ")"
+    s = T.pack (show status)
   in
-    statusCodeMatch <> " -> " <> decoderExpr
-
--- | Convert an OASType to its decoder expression
-typeToDecoder :: OASType -> Text
-typeToDecoder oasType = case oasType of
-  OASPrim primType -> primTypeDecoder primType
-  OASArray innerType -> "decodeList (" <> typeToDecoder innerType <> ")"
-  OASObject record -> "decode" <> record.constructor
-  OASMaybe innerType -> "decodeMaybe (" <> typeToDecoder innerType <> ")"
-  OASEnum typeName _ -> "decode" <> typeName
-
--- | Get decoder for primitive types
-primTypeDecoder :: OASPrimTy -> Text
-primTypeDecoder = \case
-  PrimString -> "decodeText"
-  PrimInt -> "decodeInt"
-  PrimFloat -> "decodeFloat"
-  PrimBool -> "decodeBool"
-
--- | Generate a type signature for an endpoint function
-generateTypeSignature :: Text -> Endpoint -> Text -> Text
-generateTypeSignature pathParamTyName endpoint name =
-  let
-    -- Determine request and response types from the endpoint
-    reqType = case endpoint.requestType of
-      Nothing -> "a" -- No request type, use a generic type variable
-      Just (OASObject record) -> record.constructor
-      Just (OASEnum typeName _) -> typeName
-      _ -> "a" -- Fall back to generic type for primitive or complex types
-    respType = determineResponseType endpoint.responseType
-
-    -- Create the type signature
-    signature =
-      if isNothing endpoint.requestType
-        then name <> " :: Endpoint () " <> respType -- No request type
-        else name <> " :: Endpoint " <> reqType <> " " <> respType
-  in
-    signature
+    fold
+      [ s
+      , " -> \bs ->"
+      , " bimap (StatusCaseParseError " <> s <> " bs)" <> ctor
+      , " $ decodeEither bs"
+      ]
 
 -- | Determine the main response type from the response map
-determineResponseType :: Map ResponseType SchemaResult -> Text
-determineResponseType respMap =
-  case M.lookup (ForStatus 200) respMap <|> M.lookup (ForStatus 201) respMap <|> M.lookup Default respMap of
-    Just (Type (OASObject record)) -> record.constructor
-    Just (Type (OASEnum typeName _)) -> typeName
-    _ -> "b" -- Fall back to generic type variable
+-- determineResponseType :: Map ResponseType SchemaResult -> Text
+-- determineResponseType respMap =
+--   case M.lookup (ForStatus 200) respMap <|> M.lookup (ForStatus 201) respMap <|> M.lookup Default respMap of
+--     Just (Type (OASObject record)) -> record.constructor
+--     Just (Type (OASEnum typeName _)) -> typeName
+--     _ -> "b" -- Fall back to generic type variable
 
--- | Collect all types used in endpoints for imports
-collectTypesFromEndpoints :: [Endpoint] -> Set OASType
-collectTypesFromEndpoints endpoints =
-  let
-    -- Collect request types
-    requestTypes = S.fromList $ catMaybes $ map (.requestType) endpoints
+-- -- | Collect all types used in endpoints for imports
+-- collectTypesFromEndpoints :: [Endpoint] -> Set OASType
+-- collectTypesFromEndpoints endpoints =
+--   let
+--     -- Collect request types
+--     requestTypes = S.fromList $ catMaybes $ map (.requestType) endpoints
 
-    -- Collect response types
-    responseTypes =
-      S.fromList $
-        concat $
-          map (mapMaybe extractType . M.elems . (.responseType)) endpoints
-  in
-    S.union requestTypes
+--     -- Collect response types
+--     responseTypes =
+--       S.fromList $
+--         concat $
+--           map (mapMaybe extractType . M.elems . (.responseType)) endpoints
+--   in
+--     S.union requestTypes
