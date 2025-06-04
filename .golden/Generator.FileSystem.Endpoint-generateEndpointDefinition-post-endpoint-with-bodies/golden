@@ -1,0 +1,8 @@
+postPredict :: Endpoint () InputData ()
+postPredict = Endpoint
+  { method = POST
+  , path = const $ fold
+      [ "/predict" ]
+  , requestBody = encodeInputData
+  , responseBody = \_ _ -> ()
+  }

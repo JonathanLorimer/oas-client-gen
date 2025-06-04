@@ -32,12 +32,12 @@
     formatter = forAllSystems ({pkgs, ...}: pkgs.alejandra);
 
     # nix develop
-    devShell = forAllSystems ({
+    devShells = forAllSystems ({
       hsPkgs,
       pkgs,
       ...
-    }:
-      hsPkgs.shellFor {
+    }: {
+      default = hsPkgs.shellFor {
         # withHoogle = true;
         packages = p: [
           p.oas-client-gen
@@ -49,11 +49,17 @@
           haskellPackages.ghcid
           haskellPackages.fourmolu
           haskellPackages.cabal-fmt
+          haskellPackages.hspec-golden
         ];
-      });
+      };
+    });
 
     # nix build
-    packages = forAllSystems ({hsPkgs, ...}: {
+    packages = forAllSystems ({
+      pkgs,
+      hsPkgs,
+      ...
+    }: {
       oas-client-gen = hsPkgs.oas-client-gen;
       default = hsPkgs.oas-client-gen;
     });

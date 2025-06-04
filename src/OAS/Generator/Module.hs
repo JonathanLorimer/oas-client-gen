@@ -21,6 +21,11 @@ import Data.Text qualified as T
 import OAS.Generator.Endpoint
 import OAS.Generator.OASType
 
+-- | Extract SchemaResults from ResponseTypeInfo 
+getSchemaResults :: ResponseTypeInfo -> [SchemaResult]
+getSchemaResults (UnaryType _ schemaResult) = [schemaResult]
+getSchemaResults (SumType _ resultMap) = map fst (M.elems resultMap)
+
 -- | The key top level type that represents all module and dependency information
 data Modules = Modules
   { typeModule :: Map OASType [Text]
@@ -100,7 +105,7 @@ endpointDeps = foldr foldEndpointDeps M.empty
   foldEndpointDeps ep =
     let
       reqDeps = maybe S.empty getDeps ep.requestType
-      resDeps = foldMap getDeps $ flip mapMaybe (M.elems ep.responseType) \case
+      resDeps = foldMap getDeps $ flip mapMaybe (getSchemaResults ep.responseType) \case
         Type t -> Just t
         EmptySchema -> Nothing
     in

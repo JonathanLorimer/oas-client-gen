@@ -21,6 +21,7 @@ import Data.Map qualified as M
 import Data.Maybe (catMaybes)
 import Data.Profunctor (Profunctor (..))
 import Data.Text (Text)
+import Data.Text qualified as T
 import Data.Traversable (for)
 import Network.HTTP.Types
 import OAS.Generator.Environment (Environment (..), fromRef, fromRefRec)
@@ -42,9 +43,14 @@ data ResponseTypeInfo
   | SumType {tyName :: Text, resultMap :: Map ResponseType (SchemaResult, Text)}
   deriving (Eq, Ord, Show)
 
--- TODO: Implement
+-- | Generate type definition for response types
 toResponseTypeDef :: ResponseTypeInfo -> Maybe Text
-toResponseTypeDef = undefined
+toResponseTypeDef (UnaryType _ EmptySchema) = Nothing
+toResponseTypeDef (UnaryType _ (Type _)) = Nothing  -- Simple types don't need definitions
+toResponseTypeDef (SumType tyName resultMap) = 
+  if M.null resultMap 
+    then Nothing
+    else Just $ "data " <> tyName <> " = " <> tyName <> " deriving (Eq, Show)"
 
 data Endpoint = Endpoint
   { method :: StdMethod
@@ -75,11 +81,15 @@ fromPath env url p =
             (fromOrRefSchema env.schemas op.summary)
             (M.lookup "application/json" rb.content >>= (.schema))
 
-      responseType <-
+      responseTypeMap <-
         M.mapMaybe id <$> for op.responses \res ->
           traverse
-            (fromOrRefSchema env.schemas op.summary)
+            (fromOrRefSchema env.schemas op.summary) 
             (M.lookup "application/json" res.content >>= (.schema))
+
+      let responseType = case M.toList responseTypeMap of
+            [(respType, schemaResult)] -> UnaryType respType schemaResult
+            multiple -> SumType "Response" $ M.mapWithKey (\k v -> (v, "Response" <> T.pack (show k))) responseTypeMap
 
       pure
         Endpoint

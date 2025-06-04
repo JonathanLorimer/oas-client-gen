@@ -12,7 +12,7 @@ module OAS.Generator.FileSystem.Endpoint where
 
 import Control.Monad ((>=>))
 import Data.Foldable
-import Data.Functor ((<&>))
+import Data.Functor (($>), (<&>))
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.List.NonEmpty qualified as NE
 import Data.Map.Strict (Map)
@@ -44,7 +44,7 @@ generateEndpointDefinition endpoint =
     methodDef = T.pack $ show endpoint.method
 
     -- Path
-    pathParamTyName = endpointPathPart <> "PathParam"
+    pathParamTyName = endpointPathPart <> "PathParams"
     p = generatePathDef endpoint.path pathParamTyName
 
     -- Request
@@ -62,11 +62,11 @@ generateEndpointDefinition endpoint =
     -- Type
     typeSignature =
       generateTypeSignature
-        (fromMaybe "()" p.paramType)
+        (fromMaybe "()" (pathParamTyName <$ p.paramType))
         requestType
         responseTypeName
   in
-    fold $
+    T.intercalate "\n\n" $
       catMaybes
         [ p.paramType
         , responseTypeDef
@@ -158,9 +158,9 @@ generatePathDef path pathName =
           , paramType =
               Just . fold $
                 [ "data "
-                , pathName <> "PathParams"
+                , pathName
                 , " = "
-                , pathName <> "PathParams\n"
+                , pathName <> "\n"
                 , prettyRecord 2 $ (<> " :: Text") <$> vs
                 ]
           }
@@ -219,9 +219,10 @@ generateResponseDef SumType{resultMap = responseTypes} =
     if M.null responseTypes
       then "const Nothing"
       else
-        "\\case\n"
+        "\\case"
+          <> "\n\t\t"
           <> statusCases
-          <> "\n"
+          <> "\n\t\t"
           <> defaultCase
 
 schemaResultDecoder :: Text -> SchemaResult -> Text
