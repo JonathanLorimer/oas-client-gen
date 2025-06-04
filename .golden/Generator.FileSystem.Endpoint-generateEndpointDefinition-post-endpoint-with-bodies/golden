@@ -1,0 +1,11 @@
+postPredict :: Endpoint () EmptyType EmptyType
+postPredict = Endpoint
+  { method = POST
+  , path = const $ fold
+      [ "/predict" ]
+  , requestBody = encodeEmptyType
+  , responseBody = \case
+ForStatus 200 -> s -> first StatusCaseParseError ForStatus 200 bs $ decodeEither bs
+s -> Left . UnexpectedResponse s
+
+  }

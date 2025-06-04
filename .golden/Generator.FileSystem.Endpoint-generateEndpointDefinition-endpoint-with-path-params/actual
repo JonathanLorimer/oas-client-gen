@@ -1,0 +1,21 @@
+data UsersByUserIdPostsByPostIdPathParamPathParams = UsersByUserIdPostsByPostIdPathParamPathParams
+  { userId :: Text
+  , postId :: Text
+  }getUsersByUserIdPostsByPostId :: Endpoint data UsersByUserIdPostsByPostIdPathParamPathParams = UsersByUserIdPostsByPostIdPathParamPathParams
+  { userId :: Text
+  , postId :: Text
+  } () EmptyType
+getUsersByUserIdPostsByPostId = Endpoint
+  { method = GET
+  , path = \pathParams -> fold
+      [ "/users"
+      , "/" <> pathParams.userId
+      , "/posts"
+      , "/" <> pathParams.postId
+      ]
+  , requestBody = const L.empty
+  , responseBody = \case
+ForStatus 200 -> s -> first StatusCaseParseError ForStatus 200 bs $ decodeEither bs
+s -> Left . UnexpectedResponse s
+
+  }
