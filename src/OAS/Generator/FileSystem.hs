@@ -120,8 +120,7 @@ generateEndpointImports modules deps =
         , "import qualified Data.Text as T"
         , "import Data.Map (Map)"
         , "import qualified Data.Map as M"
-        , "import Data.Aeson (FromJSON(..), ToJSON(..), (.=), (.:), (.:?), withObject, object)"
-        , "import Data.Aeson.Types (Value(..), Parser)"
+        , "import qualified Data.Aeson as A"
         , "import OAS.Base.Endpoint (Endpoint(..))"
         , "import qualified Network.HTTP.Types as HTTP"
         ]

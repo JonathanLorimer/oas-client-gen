@@ -168,37 +168,24 @@ generatePathDef path pathName =
 -- | Generate the Haskell code for the request type
 generateRequestDef :: Maybe OASType -> Text
 generateRequestDef Nothing = "const L.empty"
-generateRequestDef (Just oasType) = typeToEncoder oasType
-
--- | Convert an OASType to its encoder expression
-typeToEncoder :: OASType -> Text
-typeToEncoder oasType = case oasType of
-  OASPrim primType -> primTypeEncoder primType
-  OASArray innerType -> "encodeList " <> typeToEncoder innerType
-  OASObject record -> "encode" <> record.constructor
-  OASMaybe innerType -> "encodeMaybe (" <> typeToEncoder innerType <> ")"
-  OASEnum typeName _ -> "encode" <> typeName
-
--- | Get encoder for primitive types
-primTypeEncoder :: OASPrimTy -> Text
-primTypeEncoder = \case
-  PrimString -> "encodeText"
-  PrimInt -> "encodeInt"
-  PrimFloat -> "encodeFloat"
-  PrimBool -> "encodeBool"
+generateRequestDef (Just oasType) = "A.encode"
 
 -- | Generate the Haskell code for the response type
 generateResponseDef :: ResponseTypeInfo -> Text
 generateResponseDef (UnaryType _ EmptySchema) = "\\_ _ -> ()"
-generateResponseDef (UnaryType Default _) = "\\_ -> first DefaultCaseParseError . decodeEither"
-generateResponseDef (UnaryType n _) =
+generateResponseDef (UnaryType Default _) = "\\_ -> first DefaultCaseParseError . A.eitherDecode"
+generateResponseDef (UnaryType (ForStatus n) _) =
   let
-    n' = T.pack $ show n
+    n' = T.pack $ show (ForStatus n)
   in
     T.unlines
       [ "\\case"
-      , n' <> " -> \bs -> first StatusCaseParseError " <> n' <> " bs $ decodeEither bs"
-      , "s -> Left . UnexpectedResponse s"
+      , "      "
+          <> n'
+          <> " -> \\bs -> first (StatusCaseParseError "
+          <> T.pack (show n)
+          <> ") bs $ A.eitherDecode bs"
+      , "      " <> "s -> Left . UnexpectedResponse s"
       ]
 generateResponseDef SumType{resultMap = responseTypes} =
   let
@@ -219,16 +206,17 @@ generateResponseDef SumType{resultMap = responseTypes} =
     if M.null responseTypes
       then "const Nothing"
       else
-        "\\case"
-          <> "\n\t\t"
+        "\\case\n"
+          <> "      "
           <> statusCases
-          <> "\n\t\t"
+          <> "\n"
+          <> "      "
           <> defaultCase
 
 schemaResultDecoder :: Text -> SchemaResult -> Text
 schemaResultDecoder ctor = \case
   EmptySchema -> "pure " <> ctor
-  Type _ -> "bimap DefaultCaseParseError " <> ctor <> " . decodeEither"
+  Type _ -> "bimap DefaultCaseParseError " <> ctor <> " . A.eitherDecode"
 
 -- | Generate a case definition for a response type
 statusCaseDecoder :: Natural -> Text -> Text
@@ -238,30 +226,7 @@ statusCaseDecoder status ctor =
   in
     fold
       [ s
-      , " -> \bs ->"
+      , " -> \\bs ->"
       , " bimap (StatusCaseParseError " <> s <> " bs)" <> ctor
-      , " $ decodeEither bs"
+      , " $ A.eitherDecode bs"
       ]
-
--- | Determine the main response type from the response map
--- determineResponseType :: Map ResponseType SchemaResult -> Text
--- determineResponseType respMap =
---   case M.lookup (ForStatus 200) respMap <|> M.lookup (ForStatus 201) respMap <|> M.lookup Default respMap of
---     Just (Type (OASObject record)) -> record.constructor
---     Just (Type (OASEnum typeName _)) -> typeName
---     _ -> "b" -- Fall back to generic type variable
-
--- -- | Collect all types used in endpoints for imports
--- collectTypesFromEndpoints :: [Endpoint] -> Set OASType
--- collectTypesFromEndpoints endpoints =
---   let
---     -- Collect request types
---     requestTypes = S.fromList $ catMaybes $ map (.requestType) endpoints
-
---     -- Collect response types
---     responseTypes =
---       S.fromList $
---         concat $
---           map (mapMaybe extractType . M.elems . (.responseType)) endpoints
---   in
---     S.union requestTypes
