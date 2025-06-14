@@ -3,6 +3,6 @@ postPredict = Endpoint
   { method = POST
   , path = const $ fold
       [ "/predict" ]
-  , requestBody = encodeInputData
+  , requestBody = A.encode
   , responseBody = \_ _ -> ()
   }
