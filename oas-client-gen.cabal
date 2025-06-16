@@ -13,33 +13,18 @@ build-type:    Simple
 library
   default-extensions:
     BlockArguments
-    ConstraintKinds
     DataKinds
     DeriveAnyClass
-    DeriveFunctor
-    DeriveGeneric
     DerivingStrategies
     DerivingVia
     DuplicateRecordFields
     GADTs
-    GeneralizedNewtypeDeriving
-    ImportQualifiedPost
-    InstanceSigs
-    KindSignatures
     LambdaCase
-    MultiParamTypeClasses
     MultiWayIf
-    NamedFieldPuns
     NoFieldSelectors
-    NumericUnderscores
     OverloadedRecordDot
     OverloadedStrings
     RecordWildCards
-    ScopedTypeVariables
-    StandaloneDeriving
-    TupleSections
-    TypeApplications
-    TypeOperators
 
   build-depends:
     , aeson
@@ -58,7 +43,7 @@ library
     , unordered-containers
 
   -- Codecs
-  default-language:   Haskell2010
+  default-language: GHC2021
 
   -- cabal-fmt: expand src
   exposed-modules:
@@ -66,6 +51,9 @@ library
     OAS.Generator.Endpoint
     OAS.Generator.Environment
     OAS.Generator.FileSystem
+    OAS.Generator.FileSystem.Endpoint
+    OAS.Generator.FileSystem.PrettyPrint
+    OAS.Generator.FileSystem.Utils
     OAS.Generator.Module
     OAS.Generator.OASType
     OAS.Schema.Callback
@@ -91,7 +79,7 @@ library
 
 library oas-client-base
   hs-source-dirs:   base
-  default-language: Haskell2010
+  default-language: GHC2021
 
   -- cabal-fmt: expand base
   exposed-modules:  OAS.Base.Endpoint
@@ -105,6 +93,7 @@ library oas-client-base
 executable oas-client-gen
   main-is:            Main.hs
   hs-source-dirs:     app
+  default-language:   GHC2021
   default-extensions:
     BlockArguments
     ImportQualifiedPost
@@ -123,6 +112,9 @@ executable oas-client-gen
 test-suite oas-client-gen-tests
   type:           exitcode-stdio-1.0
   hs-source-dirs: test
+  default-extensions:
+    OverloadedStrings
+  default-language:   GHC2021
   ghc-options:
     -Wall -threaded -rtsopts -with-rtsopts=-N -fdefer-typed-holes -O0
 
@@ -131,13 +123,19 @@ test-suite oas-client-gen-tests
   -- cabal-fmt: expand test -Main
   other-modules:
     CoreSpec
+    Generator.FileSystem.EndpointSpec
     Spec
 
   build-depends:
+    , base
+    , containers
+    , text
+    , http-types
     , hedgehog
     , hspec
     , hspec-core
     , hspec-discover
     , hspec-expectations
+    , hspec-golden
     , hspec-hedgehog
     , oas-client-gen

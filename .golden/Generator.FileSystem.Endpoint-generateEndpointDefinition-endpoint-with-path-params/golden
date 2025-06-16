@@ -1,0 +1,17 @@
+data UsersByUserIdPostsByPostIdPathParams = UsersByUserIdPostsByPostIdPathParams
+  { userId :: Text
+  , postId :: Text
+  }
+
+getUsersByUserIdPostsByPostId :: Endpoint UsersByUserIdPostsByPostIdPathParams () ()
+getUsersByUserIdPostsByPostId = Endpoint
+  { method = GET
+  , path = \pathParams -> fold
+      [ "/users"
+      , "/" <> pathParams.userId
+      , "/posts"
+      , "/" <> pathParams.postId
+      ]
+  , requestBody = const L.empty
+  , responseBody = \_ _ -> ()
+  }

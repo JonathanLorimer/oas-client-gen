@@ -20,6 +20,7 @@ import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import Network.HTTP.Types qualified as HTTP
 import OAS.Generator.Endpoint (Endpoint (..))
+import OAS.Generator.FileSystem.Endpoint (generateEndpointDefinition)
 import OAS.Generator.FileSystem.Utils (getTypeName, getTypeReference)
 import OAS.Generator.Module (Modules (..))
 import OAS.Generator.OASType (Key (..), OASPrimTy (..), OASType (..), Record (..), SchemaResult (..))
@@ -49,7 +50,7 @@ generateFiles (OutputDir rootDir) modules = do
         -- Generate imports based on dependencies
         let
           deps = fromMaybe S.empty $ M.lookup oasType modules.typeDependencies
-          imports = generateImports modules deps
+          imports = generateTypeImports modules deps
 
         -- Generate type definition
 
@@ -119,8 +120,7 @@ generateEndpointImports modules deps =
         , "import qualified Data.Text as T"
         , "import Data.Map (Map)"
         , "import qualified Data.Map as M"
-        , "import Data.Aeson (FromJSON(..), ToJSON(..), (.=), (.:), (.:?), withObject, object)"
-        , "import Data.Aeson.Types (Value(..), Parser)"
+        , "import qualified Data.Aeson as A"
         , "import OAS.Base.Endpoint (Endpoint(..))"
         , "import qualified Network.HTTP.Types as HTTP"
         ]
@@ -289,37 +289,37 @@ generateEnumToJSONInstance name types =
         <> "]"
 
 -- | Generate request and response type definitions for an endpoint
-generateRequestResponseTypes :: Endpoint -> [Text]
-generateRequestResponseTypes endpoint =
-  let
-    requestType = case endpoint.requestType of
-      Nothing -> []
-      Just ty ->
-        [ "data " <> makeEndpointName endpoint <> "Request = " <> makeEndpointName endpoint <> "Request"
-        , "  { " <> getTypeReference ty
-        , "  }"
-        , "  deriving (Show, Eq, Generic)"
-        ]
+-- generateRequestResponseTypes :: Endpoint -> [Text]
+-- generateRequestResponseTypes endpoint =
+--   let
+--     requestType = case endpoint.requestType of
+--       Nothing -> []
+--       Just ty ->
+--         [ "data " <> makeEndpointName endpoint <> "Request = " <> makeEndpointName endpoint <> "Request"
+--         , "  { " <> getTypeReference ty
+--         , "  }"
+--         , "  deriving (Show, Eq, Generic)"
+--         ]
 
-    responseTypes = case M.size endpoint.responseType of
-      0 -> []
-      _ ->
-        [ "data " <> makeEndpointName endpoint <> "Response = " <> makeEndpointName endpoint <> "Response"
-        , "  { " <> T.intercalate "\n  , " (map formatResponseType (M.toList endpoint.responseType))
-        , "  }"
-        , "  deriving (Show, Eq, Generic)"
-        ]
-  in
-    requestType ++ responseTypes
- where
-  formatResponseType :: (ResponseType, SchemaResult) -> Text
-  formatResponseType (respType, schema) =
-    let
-      fieldName = case respType of
-        Default -> "defaultResponse"
-        ForStatus n -> "response" <> T.pack (show n)
-    in
-      fieldName <> " :: " <> schemaResultToType schema
+--     responseTypes = case M.size endpoint.responseType of
+--       0 -> []
+--       _ ->
+--         [ "data " <> makeEndpointName endpoint <> "Response = " <> makeEndpointName endpoint <> "Response"
+--         , "  { " <> T.intercalate "\n  , " (map formatResponseType (M.toList endpoint.responseType))
+--         , "  }"
+--         , "  deriving (Show, Eq, Generic)"
+--         ]
+--   in
+--     requestType ++ responseTypes
+--  where
+--   formatResponseType :: (ResponseType, SchemaResult) -> Text
+--   formatResponseType (respType, schema) =
+--     let
+--       fieldName = case respType of
+--         Default -> "defaultResponse"
+--         ForStatus n -> "response" <> T.pack (show n)
+--     in
+--       fieldName <> " :: " <> schemaResultToType schema
 
 -- | Convert a SchemaResult to a type string
 schemaResultToType :: SchemaResult -> Text

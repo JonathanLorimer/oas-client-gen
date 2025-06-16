@@ -12,7 +12,7 @@ module OAS.Generator.FileSystem.Endpoint where
 
 import Control.Monad ((>=>))
 import Data.Foldable
-import Data.Functor ((<&>))
+import Data.Functor (($>), (<&>))
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.List.NonEmpty qualified as NE
 import Data.Map.Strict (Map)
@@ -44,7 +44,7 @@ generateEndpointDefinition endpoint =
     methodDef = T.pack $ show endpoint.method
 
     -- Path
-    pathParamTyName = endpointPathPart <> "PathParam"
+    pathParamTyName = endpointPathPart <> "PathParams"
     p = generatePathDef endpoint.path pathParamTyName
 
     -- Request
@@ -62,11 +62,11 @@ generateEndpointDefinition endpoint =
     -- Type
     typeSignature =
       generateTypeSignature
-        (fromMaybe "()" p.paramType)
+        (fromMaybe "()" (pathParamTyName <$ p.paramType))
         requestType
         responseTypeName
   in
-    fold $
+    T.intercalate "\n\n" $
       catMaybes
         [ p.paramType
         , responseTypeDef
@@ -158,9 +158,9 @@ generatePathDef path pathName =
           , paramType =
               Just . fold $
                 [ "data "
-                , pathName <> "PathParams"
+                , pathName
                 , " = "
-                , pathName <> "PathParams\n"
+                , pathName <> "\n"
                 , prettyRecord 2 $ (<> " :: Text") <$> vs
                 ]
           }
@@ -168,37 +168,20 @@ generatePathDef path pathName =
 -- | Generate the Haskell code for the request type
 generateRequestDef :: Maybe OASType -> Text
 generateRequestDef Nothing = "const L.empty"
-generateRequestDef (Just oasType) = typeToEncoder oasType
-
--- | Convert an OASType to its encoder expression
-typeToEncoder :: OASType -> Text
-typeToEncoder oasType = case oasType of
-  OASPrim primType -> primTypeEncoder primType
-  OASArray innerType -> "encodeList " <> typeToEncoder innerType
-  OASObject record -> "encode" <> record.constructor
-  OASMaybe innerType -> "encodeMaybe (" <> typeToEncoder innerType <> ")"
-  OASEnum typeName _ -> "encode" <> typeName
-
--- | Get encoder for primitive types
-primTypeEncoder :: OASPrimTy -> Text
-primTypeEncoder = \case
-  PrimString -> "encodeText"
-  PrimInt -> "encodeInt"
-  PrimFloat -> "encodeFloat"
-  PrimBool -> "encodeBool"
+generateRequestDef (Just oasType) = "A.encode"
 
 -- | Generate the Haskell code for the response type
 generateResponseDef :: ResponseTypeInfo -> Text
 generateResponseDef (UnaryType _ EmptySchema) = "\\_ _ -> ()"
-generateResponseDef (UnaryType Default _) = "\\_ -> first DefaultCaseParseError . decodeEither"
+generateResponseDef (UnaryType Default _) = "\\_ -> first DefaultCaseParseError . A.decodeEither"
 generateResponseDef (UnaryType n _) =
   let
     n' = T.pack $ show n
   in
     T.unlines
       [ "\\case"
-      , n' <> " -> \bs -> first StatusCaseParseError " <> n' <> " bs $ decodeEither bs"
-      , "s -> Left . UnexpectedResponse s"
+      , "      " <> n' <> " -> \bs -> first StatusCaseParseError " <> n' <> " bs $ A.decodeEither bs"
+      , "      " <> "s -> Left . UnexpectedResponse s"
       ]
 generateResponseDef SumType{resultMap = responseTypes} =
   let
@@ -220,14 +203,16 @@ generateResponseDef SumType{resultMap = responseTypes} =
       then "const Nothing"
       else
         "\\case\n"
+          <> "      "
           <> statusCases
           <> "\n"
+          <> "      "
           <> defaultCase
 
 schemaResultDecoder :: Text -> SchemaResult -> Text
 schemaResultDecoder ctor = \case
   EmptySchema -> "pure " <> ctor
-  Type _ -> "bimap DefaultCaseParseError " <> ctor <> " . decodeEither"
+  Type _ -> "bimap DefaultCaseParseError " <> ctor <> " . A.decodeEither"
 
 -- | Generate a case definition for a response type
 statusCaseDecoder :: Natural -> Text -> Text
@@ -239,28 +224,5 @@ statusCaseDecoder status ctor =
       [ s
       , " -> \bs ->"
       , " bimap (StatusCaseParseError " <> s <> " bs)" <> ctor
-      , " $ decodeEither bs"
+      , " $ A.decodeEither bs"
       ]
-
--- | Determine the main response type from the response map
--- determineResponseType :: Map ResponseType SchemaResult -> Text
--- determineResponseType respMap =
---   case M.lookup (ForStatus 200) respMap <|> M.lookup (ForStatus 201) respMap <|> M.lookup Default respMap of
---     Just (Type (OASObject record)) -> record.constructor
---     Just (Type (OASEnum typeName _)) -> typeName
---     _ -> "b" -- Fall back to generic type variable
-
--- -- | Collect all types used in endpoints for imports
--- collectTypesFromEndpoints :: [Endpoint] -> Set OASType
--- collectTypesFromEndpoints endpoints =
---   let
---     -- Collect request types
---     requestTypes = S.fromList $ catMaybes $ map (.requestType) endpoints
-
---     -- Collect response types
---     responseTypes =
---       S.fromList $
---         concat $
---           map (mapMaybe extractType . M.elems . (.responseType)) endpoints
---   in
---     S.union requestTypes
