@@ -189,7 +189,7 @@ generateResponseDef (UnaryType (ForStatus n) _) =
       ]
 generateResponseDef SumType{resultMap = responseTypes} =
   let
-    withDefaultCase (res, ctor) = "_ -> const " <> schemaResultDecoder ctor res
+    withDefaultCase (res, ctor) = "Default -> const . " <> schemaResultDecoder ctor res
     errorDefaultCase = "s -> Left . UnexpectedResponse s"
     defaultCase = maybe errorDefaultCase withDefaultCase (M.lookup Default responseTypes)
 
@@ -207,7 +207,6 @@ generateResponseDef SumType{resultMap = responseTypes} =
       then "const Nothing"
       else
         "\\case\n"
-          <> "      "
           <> statusCases
           <> "\n"
           <> "      "
@@ -225,8 +224,9 @@ statusCaseDecoder status ctor =
     s = T.pack (show status)
   in
     fold
-      [ s
+      [ "      "
+      , s
       , " -> \\bs ->"
-      , " bimap (StatusCaseParseError " <> s <> " bs)" <> ctor
+      , " bimap (StatusCaseParseError " <> s <> " bs) " <> ctor
       , " $ A.eitherDecode bs"
       ]

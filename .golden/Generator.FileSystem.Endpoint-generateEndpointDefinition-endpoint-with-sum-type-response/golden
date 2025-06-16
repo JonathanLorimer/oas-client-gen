@@ -1,0 +1,18 @@
+data ApiResponse = ApiResponseError Text
+  | ApiResponseOk Text
+  | ApiResponseNotFound
+  deriving (Eq, Show)
+
+getApiData :: Endpoint () () ApiResponse
+getApiData = Endpoint
+  { method = GET
+  , path = const $ fold
+      [ "/api"
+      , "/data"
+      ]
+  , requestBody = const L.empty
+  , responseBody = \case
+      200 -> \bs -> bimap (StatusCaseParseError 200 bs) ApiResponseOk $ A.eitherDecode bs
+      404 -> \bs -> bimap (StatusCaseParseError 404 bs) ApiResponseNotFound $ A.eitherDecode bs
+      Default -> const . bimap DefaultCaseParseError ApiResponseError . A.eitherDecode
+  }

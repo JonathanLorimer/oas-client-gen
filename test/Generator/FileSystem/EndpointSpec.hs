@@ -23,6 +23,9 @@ spec = describe "generateEndpointDefinition" $ do
   golden "endpoint-with-path-params" $ do
     pure $ T.unpack $ generateEndpointDefinition endpointWithPathParams
 
+  golden "endpoint-with-sum-type-response" $ do
+    pure $ T.unpack $ generateEndpointDefinition endpointWithSumTypeResponse
+
 -- Test data
 simpleGetEndpoint :: Endpoint
 simpleGetEndpoint =
@@ -55,4 +58,22 @@ endpointWithPathParams =
     , path = "/users/{userId}/posts/{postId}"
     , requestType = Nothing
     , responseType = UnaryType (ForStatus 200) EmptySchema
+    }
+
+endpointWithSumTypeResponse :: Endpoint
+endpointWithSumTypeResponse =
+  Endpoint
+    { method = GET
+    , path = "/api/data"
+    , requestType = Nothing
+    , responseType =
+        SumType
+          { tyName = "ApiResponse"
+          , resultMap =
+              M.fromList
+                [ (ForStatus 200, (Type $ OASPrim PrimString, "ApiResponseOk"))
+                , (ForStatus 404, (EmptySchema, "ApiResponseNotFound"))
+                , (Default, (Type $ OASPrim PrimString, "ApiResponseError"))
+                ]
+          }
     }

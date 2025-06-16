@@ -15,6 +15,7 @@ module OAS.Generator.Endpoint where
 import Control.Monad (join)
 import Data.Bifunctor (Bifunctor)
 import Data.ByteString.Lazy (ByteString)
+import Data.Foldable (Foldable (..))
 import Data.Functor.Contravariant
 import Data.Map (Map)
 import Data.Map qualified as M
@@ -25,6 +26,7 @@ import Data.Text qualified as T
 import Data.Traversable (for)
 import Network.HTTP.Types
 import OAS.Generator.Environment (Environment (..), fromRef, fromRefRec)
+import OAS.Generator.FileSystem.Utils (getTypeReference)
 import OAS.Generator.OASType
   ( OASType
   , SchemaResult (..)
@@ -46,11 +48,23 @@ data ResponseTypeInfo
 -- | Generate type definition for response types
 toResponseTypeDef :: ResponseTypeInfo -> Maybe Text
 toResponseTypeDef (UnaryType _ EmptySchema) = Nothing
-toResponseTypeDef (UnaryType _ (Type _)) = Nothing  -- Simple types don't need definitions
-toResponseTypeDef (SumType tyName resultMap) = 
-  if M.null resultMap 
+toResponseTypeDef (UnaryType _ (Type _)) = Nothing -- Simple types don't need definitions
+toResponseTypeDef (SumType tyName resultMap) =
+  if M.null resultMap
     then Nothing
-    else Just $ "data " <> tyName <> " = " <> tyName <> " deriving (Eq, Show)"
+    else
+      Just $
+        fold
+          [ "data "
+          , tyName
+          , " = "
+          , T.intercalate "\n  | " (mkConNames <$> M.elems resultMap)
+          , "\n  deriving (Eq, Show)"
+          ]
+ where
+  mkConNames :: (SchemaResult, Text) -> Text
+  mkConNames (EmptySchema, t) = t
+  mkConNames (Type oasTy, t) = t <> " " <> getTypeReference oasTy
 
 data Endpoint = Endpoint
   { method :: StdMethod
@@ -84,12 +98,13 @@ fromPath env url p =
       responseTypeMap <-
         M.mapMaybe id <$> for op.responses \res ->
           traverse
-            (fromOrRefSchema env.schemas op.summary) 
+            (fromOrRefSchema env.schemas op.summary)
             (M.lookup "application/json" res.content >>= (.schema))
 
-      let responseType = case M.toList responseTypeMap of
-            [(respType, schemaResult)] -> UnaryType respType schemaResult
-            multiple -> SumType "Response" $ M.mapWithKey (\k v -> (v, "Response" <> T.pack (show k))) responseTypeMap
+      let
+        responseType = case M.toList responseTypeMap of
+          [(respType, schemaResult)] -> UnaryType respType schemaResult
+          multiple -> SumType "Response" $ M.mapWithKey (\k v -> (v, "Response" <> T.pack (show k))) responseTypeMap
 
       pure
         Endpoint

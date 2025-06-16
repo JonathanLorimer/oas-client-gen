@@ -5,7 +5,7 @@ getHealth = Endpoint
       [ "/health" ]
   , requestBody = const L.empty
   , responseBody = \case
-      ForStatus 200 -> \bs -> first (StatusCaseParseError 200) bs $ A.decodeEither bs
+      ForStatus 200 -> \bs -> first (StatusCaseParseError 200) bs $ A.eitherDecode bs
       s -> Left . UnexpectedResponse s
 
   }
