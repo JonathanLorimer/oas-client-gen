@@ -107,7 +107,7 @@ fromSchema env mt s =
       Just SchemaNumber -> pure . Type . OASPrim $ PrimFloat
       Just SchemaInteger -> pure . Type . OASPrim $ PrimInt
       Just SchemaBoolean -> pure . Type . OASPrim $ PrimBool
-      Just SchemaNull -> pure . Type . OASPrim $ PrimBool -- FIXME: somehow lookahead and make a maybe from this
+      Just SchemaNull -> pure EmptySchema
       -- Prim types, which don't get inserted into the type graph because we don't have to track them
       -- for library imports
       Nothing -> case s.anyOf of

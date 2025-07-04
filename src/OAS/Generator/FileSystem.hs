@@ -91,37 +91,33 @@ makeFilePath rootDir modulePath =
 generateTypeImports :: Modules -> S.Set OASType -> Text
 generateTypeImports modules deps =
   let
-    -- Standard imports
-    stdImports =
+    baseImports =
       T.unlines
         [ "import Data.Text (Text)"
-        , "import qualified Data.Text as T"
-        , "import Data.Map (Map)"
-        , "import qualified Data.Map as M"
-        , "import Data.Set (Set)"
-        , "import qualified Data.Set as S"
         , "import Data.Aeson (FromJSON(..), ToJSON(..), (.=), (.:), (.:?), withObject, object)"
-        , "import Data.Aeson.Types (Value(..), Parser)"
+        , "import Data.Aeson.Types (Value(..), Parser, asum)"
+        , "import GHC.Generics (Generic)"
         ]
 
     -- Type-specific imports
     typeImports = T.unlines . mapMaybe (makeTypeImport modules) . S.toList $ deps
   in
-    stdImports <> "\n" <> typeImports
+    baseImports <> "\n" <> typeImports
 
 -- | Generate import statements for endpoint modules
 generateEndpointImports :: Modules -> S.Set OASType -> Text
 generateEndpointImports modules deps =
   let
-    -- Standard imports
+    -- Standard imports required for endpoints
     stdImports =
       T.unlines
         [ "import Data.Text (Text)"
         , "import qualified Data.Text as T"
-        , "import Data.Map (Map)"
-        , "import qualified Data.Map as M"
+        , "import Data.Foldable (fold)"
+        , "import Data.Bifunctor (first, bimap)"
         , "import qualified Data.Aeson as A"
-        , "import OAS.Base.Endpoint (Endpoint(..))"
+        , "import qualified Data.ByteString.Lazy as L"
+        , "import OAS.Base.Endpoint (Endpoint(..), FromResponseError(..))"
         , "import qualified Network.HTTP.Types as HTTP"
         ]
 
@@ -237,18 +233,14 @@ generateEnumDefinition name types =
     in
       constructorName <> " " <> getTypeReference ty
 
--- TODO: fix this, need to use asum on the parsers for the variants
 generateEnumFromJSONInstance :: Text -> [OASType] -> [Text]
 generateEnumFromJSONInstance name types =
   [ ""
   , "instance FromJSON " <> name <> " where"
-  , "  parseJSON = withObject \"" <> name <> "\" $ \\obj -> do"
-  , "    ty <- obj .: \"type\" :: Parser Text"
-  , "    case ty of"
+  , "  parseJSON value = asum"
+  , "    [ " <> T.intercalate "\n    , " variantParsers
+  , "    ]"
   ]
-    ++ variantParsers
-    ++ [ "      _ -> fail $ \"Unknown " <> name <> " type: \" ++ T.unpack ty"
-       ]
  where
   variantParsers = zipWith makeVariantParser [1 ..] types
 
@@ -256,9 +248,8 @@ generateEnumFromJSONInstance name types =
   makeVariantParser i _ =
     let
       constructorName = name <> "Variant" <> T.pack (show i)
-      typeName = "variant" <> T.pack (show i)
     in
-      "      \"" <> typeName <> "\" -> " <> constructorName <> " <$> obj .: \"value\""
+      constructorName <> " <$> parseJSON value"
 
 -- | Generate a ToJSON instance for an enum type
 generateEnumToJSONInstance :: Text -> [OASType] -> [Text]
@@ -287,39 +278,6 @@ generateEnumToJSONInstance name types =
         <> "\" :: Text), \"value\" .= "
         <> paramName
         <> "]"
-
--- | Generate request and response type definitions for an endpoint
--- generateRequestResponseTypes :: Endpoint -> [Text]
--- generateRequestResponseTypes endpoint =
---   let
---     requestType = case endpoint.requestType of
---       Nothing -> []
---       Just ty ->
---         [ "data " <> makeEndpointName endpoint <> "Request = " <> makeEndpointName endpoint <> "Request"
---         , "  { " <> getTypeReference ty
---         , "  }"
---         , "  deriving (Show, Eq, Generic)"
---         ]
-
---     responseTypes = case M.size endpoint.responseType of
---       0 -> []
---       _ ->
---         [ "data " <> makeEndpointName endpoint <> "Response = " <> makeEndpointName endpoint <> "Response"
---         , "  { " <> T.intercalate "\n  , " (map formatResponseType (M.toList endpoint.responseType))
---         , "  }"
---         , "  deriving (Show, Eq, Generic)"
---         ]
---   in
---     requestType ++ responseTypes
---  where
---   formatResponseType :: (ResponseType, SchemaResult) -> Text
---   formatResponseType (respType, schema) =
---     let
---       fieldName = case respType of
---         Default -> "defaultResponse"
---         ForStatus n -> "response" <> T.pack (show n)
---     in
---       fieldName <> " :: " <> schemaResultToType schema
 
 -- | Convert a SchemaResult to a type string
 schemaResultToType :: SchemaResult -> Text
