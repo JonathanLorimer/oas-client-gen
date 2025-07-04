@@ -24,7 +24,15 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Network.HTTP.Types (StdMethod (..))
 import Numeric.Natural (Natural)
-import OAS.Generator.Endpoint (Endpoint (..), ResponseTypeInfo (..), toResponseTypeDef)
+import OAS.Generator.Endpoint
+  ( Endpoint (..)
+  , PathPart (..)
+  , ResponseTypeInfo (..)
+  , fromPathParts
+  , generateEndpointNameMethodPart
+  , generateEndpointNamePathPart
+  , toResponseTypeDef
+  )
 import OAS.Generator.FileSystem.PrettyPrint
 import OAS.Generator.FileSystem.Utils (getTypeReference)
 import OAS.Generator.OASType (OASPrimTy (..), OASType (..), Record (..), SchemaResult (..))
@@ -37,7 +45,7 @@ generateEndpointDefinition endpoint =
   let
     -- Endpoint name
     endpointPathPart = generateEndpointNamePathPart endpoint.path
-    endpointMethodPart = generateEndpointNameMethodPart endpoint.method
+    endpointMethodPart = T.toLower $ generateEndpointNameMethodPart endpoint.method
     endpointName = endpointMethodPart <> endpointPathPart
 
     -- Method
@@ -96,37 +104,6 @@ generateTypeSignature pathType reqType resType =
     , reqType
     , resType
     ]
-
-data PathPart = Static Text | Variable Text
-  deriving (Eq, Ord, Show)
-
-fromPathParts :: Text -> (PathPart -> a) -> [a]
-fromPathParts path f =
-  let
-    pathWithoutLeadingSlash = fromMaybe path $ T.stripPrefix "/" path
-    -- Split path by / and convert to camelCase
-    pathParts = filter (not . T.null) $ T.split (== '/') pathWithoutLeadingSlash
-  in
-    pathParts <&> \part ->
-      case T.stripPrefix "{" >=> T.stripSuffix "}" $ part of
-        Nothing -> f $ Static part
-        Just var -> f $ Variable var
-
--- | Generate a camelCase name for the endpoint based on method and path
-generateEndpointNamePathPart :: Text -> Text
-generateEndpointNamePathPart path =
-  let
-    anyToPascal = T.pack . toPascal . fromAny . T.unpack
-    normalizedPathName = fold $ fromPathParts path \case
-      Static p -> anyToPascal p
-      Variable v -> "By" <> anyToPascal v
-  in
-    if T.null normalizedPathName
-      then "Root"
-      else normalizedPathName
-
-generateEndpointNameMethodPart :: StdMethod -> Text
-generateEndpointNameMethodPart = T.toLower . T.pack . show
 
 data PathDef = PathDef
   { pathDef :: Text

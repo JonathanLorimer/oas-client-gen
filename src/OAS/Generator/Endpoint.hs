@@ -1,3 +1,5 @@
+{-# LANGUAGE NamedFieldPuns #-}
+
 -- |
 --   Module      : OAS.Generator.Endpoint
 --   Description : Types and functions for representing an "endpoint"
@@ -12,14 +14,15 @@
 --   source code.
 module OAS.Generator.Endpoint where
 
-import Control.Monad (join)
+import Control.Monad (join, (>=>))
 import Data.Bifunctor (Bifunctor)
 import Data.ByteString.Lazy (ByteString)
 import Data.Foldable (Foldable (..))
+import Data.Functor ((<&>))
 import Data.Functor.Contravariant
 import Data.Map (Map)
 import Data.Map qualified as M
-import Data.Maybe (catMaybes)
+import Data.Maybe (catMaybes, fromMaybe)
 import Data.Profunctor (Profunctor (..))
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -38,7 +41,8 @@ import OAS.Generator.OASType
 import OAS.Schema.Header (MediaType (..))
 import OAS.Schema.Path (Operation (..), Path (..))
 import OAS.Schema.RequestBody
-import OAS.Schema.Response
+import OAS.Schema.Response (Response (..), ResponseType (..))
+import Text.Casing (camel, fromAny, toPascal)
 
 data ResponseTypeInfo
   = UnaryType ResponseType SchemaResult
@@ -65,6 +69,37 @@ toResponseTypeDef (SumType tyName resultMap) =
   mkConNames :: (SchemaResult, Text) -> Text
   mkConNames (EmptySchema, t) = t
   mkConNames (Type oasTy, t) = t <> " " <> getTypeReference oasTy
+
+data PathPart = Static Text | Variable Text
+  deriving (Eq, Ord, Show)
+
+fromPathParts :: Text -> (PathPart -> a) -> [a]
+fromPathParts path f =
+  let
+    pathWithoutLeadingSlash = fromMaybe path $ T.stripPrefix "/" path
+    -- Split path by / and convert to camelCase
+    pathParts = filter (not . T.null) $ T.split (== '/') pathWithoutLeadingSlash
+  in
+    pathParts <&> \part ->
+      case T.stripPrefix "{" >=> T.stripSuffix "}" $ part of
+        Nothing -> f $ Static part
+        Just var -> f $ Variable var
+
+-- | Generate a camelCase name for the endpoint based on method and path
+generateEndpointNamePathPart :: Text -> Text
+generateEndpointNamePathPart path =
+  let
+    anyToPascal = T.pack . toPascal . fromAny . T.unpack
+    normalizedPathName = fold $ fromPathParts path \case
+      Static p -> anyToPascal p
+      Variable v -> "By" <> anyToPascal v
+  in
+    if T.null normalizedPathName
+      then "Root"
+      else normalizedPathName
+
+generateEndpointNameMethodPart :: StdMethod -> Text
+generateEndpointNameMethodPart = T.pack . show
 
 data Endpoint = Endpoint
   { method :: StdMethod
@@ -102,14 +137,32 @@ fromPath env url p =
             (M.lookup "application/json" res.content >>= (.schema))
 
       let
+        method = stdMethod
+        path = url
+        endpointPathPart = generateEndpointNamePathPart path
+        endpointMethodPart = T.toTitle . T.toLower $ generateEndpointNameMethodPart method
+        endpointName = endpointMethodPart <> endpointPathPart
+        responseTypeName = endpointName <> "Response"
+
         responseType = case M.toList responseTypeMap of
           [(respType, schemaResult)] -> UnaryType respType schemaResult
-          multiple -> SumType "Response" $ M.mapWithKey (\k v -> (v, "Response" <> T.pack (show k))) responseTypeMap
+          multiple ->
+            SumType responseTypeName $
+              M.mapWithKey
+                ( \k v ->
+                    let
+                      suffix = case k of
+                        Default -> "Default"
+                        ForStatus n -> "ForStatus" <> T.pack (show n)
+                    in
+                      (v, responseTypeName <> suffix)
+                )
+                responseTypeMap
 
       pure
         Endpoint
-          { method = stdMethod
-          , path = url
+          { method
+          , path
           , requestType =
               requestType >>= \case
                 EmptySchema -> Nothing

@@ -15,18 +15,18 @@ import Types.InputData (InputData)
 import Types.ValidationError (ValidationError)
 import Types.Location (Location)
 
-data Response = ResponseForStatus 200 GlResponse
-  | ResponseForStatus 422 HttpValidationError
+data PostPredictResponse = PostPredictResponseForStatus200 GlResponse
+  | PostPredictResponseForStatus422 HttpValidationError
   deriving (Eq, Show)
 
-postPredict :: Endpoint () InputData Response
+postPredict :: Endpoint () InputData PostPredictResponse
 postPredict = Endpoint
   { method = POST
   , path = const $ fold
       [ "/predict" ]
   , requestBody = A.encode
   , responseBody = \case
-      200 -> \bs -> bimap (ParseError 200) ResponseForStatus 200 $ A.eitherDecode bs
-      422 -> \bs -> bimap (ParseError 422) ResponseForStatus 422 $ A.eitherDecode bs
+      200 -> \bs -> bimap (ParseError 200) PostPredictResponseForStatus200 $ A.eitherDecode bs
+      422 -> \bs -> bimap (ParseError 422) PostPredictResponseForStatus422 $ A.eitherDecode bs
       s -> \bs -> Left $ UnexpectedResponse s bs
   }
