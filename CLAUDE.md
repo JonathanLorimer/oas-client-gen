@@ -34,6 +34,8 @@ data OASType
   | OASObject Record         -- JSON objects -> Haskell records
   | OASMaybe OASType         -- Optional fields
   | OASEnum Text [OASType]   -- Union types/enums
+  | OASMap                   -- Map Text Value for free-form objects
+  | OASRef Text              -- Reference to a named type (for cycles)
 ```
 
 #### Endpoint Representation
@@ -42,7 +44,7 @@ data Endpoint = Endpoint
   { method :: StdMethod                    -- HTTP method
   , path :: Text                           -- URL path
   , requestType :: Maybe OASType           -- Request body type
-  , responseType :: Map ResponseType SchemaResult  -- Response types by status
+  , responseType :: Map Natural SchemaResult  -- Response types by status code
   }
 ```
 
@@ -85,7 +87,11 @@ cabal run oas-client-gen
 
 ## Project Structure
 
+The repository contains two main projects:
+
+### 1. Client Generator Library (`oas-client-gen/`)
 ```
+oas-client-gen/
 ├── src/OAS/
 │   ├── Schema/          # OpenAPI schema types
 │   │   ├── OpenAPI.hs   # Root OpenAPI document
@@ -96,37 +102,88 @@ cabal run oas-client-gen
 │   │   ├── OASType.hs   # Intermediate type representation
 │   │   ├── Endpoint.hs  # API endpoint abstraction
 │   │   ├── Module.hs    # Module dependency system
-│   │   └── Environment.hs # Reference resolution
+│   │   ├── Environment.hs # Reference resolution
+│   │   └── FileSystem/  # File generation utilities
+│   │       ├── Endpoint.hs # Endpoint code generation
+│   │       └── Utils.hs    # Type utilities
 │   └── Aeson/
 │       └── Modifiers.hs # JSON field name transformations
-├── app/Main.hs          # Example usage
-├── flake.nix           # Nix development environment
+├── base/OAS/Base/       # Base types for generated clients
+│   └── Endpoint.hs      # Runtime endpoint types
+├── app/Main.hs          # CLI application
 └── oas-client-gen.cabal # Cabal package definition
+```
+
+### 2. Example Generated Client (`example/`)
+```
+example/
+├── openapi.json         # Example OpenAPI spec (2.9MB)
+├── src/                 # Generated client code
+│   ├── Types/           # Generated data types
+│   │   ├── Account.hs
+│   │   ├── Customer.hs
+│   │   └── ... (940+ type modules)
+│   └── Endpoints/       # Generated API endpoints
+│       ├── Accounting/
+│       ├── Banking/
+│       └── ... (organized by API path)
+├── example.cabal        # Generated project file
+└── cabal.project        # Cabal configuration
+```
+
+### Root Level Files
+```
+├── flake.nix           # Nix development environment
+├── flake.lock          # Nix dependency lock
+├── cabal.project       # Multi-project Cabal configuration
+├── fourmolu.yaml       # Code formatter configuration
+├── hie.yaml            # Haskell IDE Engine configuration
+├── CLAUDE.md           # This documentation
+└── LICENSE             # Project license
 ```
 
 ## Key Features
 
 ### Implemented
-- ✅ Complete OpenAPI 3.0 schema parsing
+- ✅ Complete OpenAPI 3.0 and 3.1 schema parsing
 - ✅ Intermediate type system with dependency tracking
-- ✅ Reference resolution (`$ref` handling)
+- ✅ Reference resolution (`$ref` handling) with cycle detection
 - ✅ Module dependency graph generation
 - ✅ Support for complex nested types
 - ✅ Proper handling of optional fields and union types
+- ✅ Haskell source code generation with proper imports
+- ✅ Response type naming (prefixed with endpoint name)
+- ✅ Support for OpenAPI 3.1 nullable types
+- ✅ Name collision detection and resolution
+- ✅ CLI tool for processing OpenAPI specs
+- ✅ Language pragma generation (OverloadedRecordDot, etc.)
+- ✅ Proper handling of references vs inline schemas
 
 ### Planned
-- 🔄 Haskell source code generation
 - 🔄 HTTP client generation (using `servant-client` or similar)
-- 🔄 CLI tool for processing OpenAPI specs
 - 🔄 Template customization for generated code
+- 🔄 Support for more OpenAPI extensions
 
 ## Usage Example
 
+### CLI Usage
+```bash
+# Generate client from OpenAPI spec
+cabal run oas-client-gen -- ./api-spec.json ./output-dir
+
+# From the example directory
+cd example
+rm -rf src/*
+cabal run oas-client-gen -- ./openapi.json ./src
+```
+
+### Library Usage
 ```haskell
 import OAS.Schema.OpenAPI (OpenAPISpec)
 import OAS.Generator.Environment (constructEnvironment)
 import OAS.Generator.Endpoint (fromPath)
 import OAS.Generator.Module (makeModules)
+import OAS.Generator.FileSystem (generateClient)
 
 -- Parse OpenAPI spec from JSON
 spec <- parseOpenAPISpec "api-spec.json"
@@ -143,11 +200,8 @@ let env = constructEnvironment spec.components
 -- Generate module structure
 let modules = makeModules endpoints typeInfo
 
--- modules now contains:
--- - typeModule: Map from types to module paths
--- - typeDependencies: Dependency relationships
--- - endpointModule: Map from endpoints to module paths
--- - endpointDependencies: Type dependencies per endpoint
+-- Generate the actual client files
+generateClient "./output-dir" modules endpoints typeInfo
 ```
 
 ## Code Style and Conventions
@@ -203,15 +257,43 @@ cabal test --enable-coverage
 
 ## Known Limitations
 
-- Currently only supports OpenAPI 3.0 (not 3.1)
-- Code generation is not yet implemented
 - Limited support for OpenAPI extensions
 - Some advanced schema features may not be fully supported
+- HTTP client generation not yet implemented
+- No support for XML content types
+- Limited support for complex authentication schemes
+
+## Recent Progress
+
+### Name Collision Resolution
+- Implemented detection of name collisions between different schemas
+- Referenced types (via `$ref`) always use their canonical names
+- Inline schemas with conflicting names get numeric suffixes (e.g., `Subsidiaries1`, `Subsidiaries2`)
+- Reduced type generation from 1189 to 940 types in the example project
+
+### OpenAPI 3.1 Support
+- Added support for nullable types using `type: ["string", "null"]` syntax
+- Implemented `SchemaTypeValue` with `SingleType` and `MultipleTypes` variants
+- Proper handling of free-form objects (`additionalProperties` without `properties`)
+
+### Code Generation Improvements
+- Response types now prefixed with endpoint name (e.g., `GetAccountResponse`)
+- Automatic language pragma generation based on code usage
+- Improved import generation with proper filtering of self-references
+- Better handling of recursive types with `OASRef`
 
 ## Future Roadmap
 
-1. **Phase 1**: Complete core type generation and module system
-2. **Phase 2**: Implement Haskell source code generation
-3. **Phase 3**: Add HTTP client generation with popular libraries
-4. **Phase 4**: CLI tool and template system for customization
-5. **Phase 5**: Support for OpenAPI 3.1 and extensions
+1. **Phase 1**: ✅ Complete core type generation and module system
+2. **Phase 2**: ✅ Implement Haskell source code generation
+3. **Phase 2.5**: Robust type deduplication (see TODO.md)
+   - Implement structural equality checking for schemas
+   - Reduce duplicate type generation for identical inline schemas
+   - Unify reference and inline representations of the same schema
+4. **Phase 3**: Add HTTP client generation with popular libraries
+5. **Phase 4**: Template system for customization
+6. **Phase 5**: Extended OpenAPI feature support
+
+## Important TODOs
+
+- **Type Deduplication**: See `TODO.md` for detailed plan to implement structural equality checking and reduce the number of generated types from 940 to ~600-700
