@@ -1,0 +1,303 @@
+{-# LANGUAGE StrictData #-}
+
+module OAS.Schema.SchemaObject where
+
+import Data.Aeson
+import Data.List.NonEmpty (NonEmpty)
+import Data.Map.Strict (Map)
+import Data.Map.Strict qualified as M
+import Data.Scientific
+import Data.Set (Set)
+import Data.Set qualified as S
+import Data.Text (Text)
+import OAS.Schema.Example (Example)
+import OAS.Schema.ExternalDocs (ExternalDocs)
+import OAS.Schema.Ref (OrRef)
+
+data SchemaType
+  = SchemaString
+  | SchemaNumber
+  | SchemaInteger
+  | SchemaBoolean
+  | SchemaArray
+  | SchemaNull
+  | SchemaObject
+  deriving (Show, Eq, Ord)
+
+instance FromJSON SchemaType where
+  parseJSON = withText "SchemaType" \case
+    "string" -> pure SchemaString
+    "number" -> pure SchemaNumber
+    "integer" -> pure SchemaInteger
+    "boolean" -> pure SchemaBoolean
+    "array" -> pure SchemaArray
+    "null" -> pure SchemaNull
+    "object" -> pure SchemaObject
+    t -> fail $ "Unknown SchemaType: " <> show t
+
+instance ToJSON SchemaType where
+  toJSON = \case
+    SchemaString -> "string"
+    SchemaNumber -> "number"
+    SchemaInteger -> "integer"
+    SchemaBoolean -> "boolean"
+    SchemaArray -> "array"
+    SchemaNull -> "null"
+    SchemaObject -> "object"
+
+data Discriminator = Discriminator
+  { propertyName :: Text
+  , mapping :: Map Text Text
+  }
+  deriving (Show, Eq)
+
+instance FromJSON Discriminator where
+  parseJSON = withObject "Discriminator" \o ->
+    Discriminator
+      <$> o .: "propertyName"
+      <*> o .: "mapping"
+
+instance ToJSON Discriminator where
+  toJSON Discriminator{..} = object
+    [ "propertyName" .= propertyName
+    , "mapping" .= mapping
+    ]
+
+data XMLObject = XMLObject
+  { name :: Maybe Text
+  , namespace :: Maybe Text
+  , prefix :: Maybe Text
+  , attribute :: Bool
+  , wrapped :: Bool
+  }
+  deriving (Show, Eq)
+
+instance FromJSON XMLObject where
+  parseJSON = withObject "XMLObject" \o ->
+    XMLObject
+      <$> o .:? "name"
+      <*> o .:? "namespace"
+      <*> o .:? "prefix"
+      <*> o .: "attribute"
+      <*> o .: "wrapped"
+
+instance ToJSON XMLObject where
+  toJSON XMLObject{..} = object $ catMaybes
+    [ ("name" .=) <$> name
+    , ("namespace" .=) <$> namespace
+    , ("prefix" .=) <$> prefix
+    , Just $ "attribute" .= attribute
+    , Just $ "wrapped" .= wrapped
+    ]
+   where
+    catMaybes = foldr (\x acc -> maybe acc (: acc) x) []
+
+data Schema = Schema
+  { discriminator :: Maybe Discriminator
+  , xml :: Maybe XMLObject
+  , externalDocs :: Maybe ExternalDocs
+  , example :: Maybe Value
+  , examples :: [Example]
+  , title :: Maybe Text
+  , description :: Maybe Text
+  , required :: [Text]
+  , nullable :: Maybe Bool
+  , allOf :: Maybe (NonEmpty (OrRef Schema))
+  , oneOf :: Maybe (NonEmpty (OrRef Schema))
+  , anyOf :: Maybe (NonEmpty (OrRef Schema))
+  , not :: Maybe (OrRef Schema)
+  , properties :: Map Text (OrRef Schema)
+  , additionalProperties :: Maybe AdditionalProperties
+  , readOnly :: Maybe Bool
+  , writeOnly :: Maybe Bool
+  , deprecated :: Maybe Bool
+  , maxProperties :: Maybe Integer
+  , minProperties :: Maybe Integer
+  , def :: Maybe Value
+  , schemaType :: Maybe SchemaTypeValue
+  , format :: Maybe Text
+  , items :: Maybe Items
+  , maximum :: Maybe Scientific
+  , exclusiveMaximum :: Maybe Bool
+  , minimum :: Maybe Scientific
+  , exclusiveMinimum :: Maybe Bool
+  , maxLength :: Maybe Integer
+  , minLength :: Maybe Integer
+  , pattern :: Maybe Text
+  , maxItems :: Maybe Integer
+  , minItems :: Maybe Integer
+  , uniqueItems :: Maybe Bool
+  , enum :: Maybe [Value]
+  , multipleOf :: Maybe Scientific
+  }
+  deriving (Show, Eq)
+
+emptySchema :: Schema
+emptySchema =
+  Schema
+    { discriminator = Nothing
+    , xml = Nothing
+    , externalDocs = Nothing
+    , example = Nothing
+    , examples = []
+    , title = Nothing
+    , description = Nothing
+    , required = []
+    , nullable = Nothing
+    , allOf = Nothing
+    , oneOf = Nothing
+    , anyOf = Nothing
+    , not = Nothing
+    , properties = M.empty
+    , additionalProperties = Nothing
+    , readOnly = Nothing
+    , writeOnly = Nothing
+    , deprecated = Nothing
+    , maxProperties = Nothing
+    , minProperties = Nothing
+    , def = Nothing
+    , schemaType = Nothing
+    , format = Nothing
+    , items = Nothing
+    , maximum = Nothing
+    , exclusiveMaximum = Nothing
+    , minimum = Nothing
+    , exclusiveMinimum = Nothing
+    , maxLength = Nothing
+    , minLength = Nothing
+    , pattern = Nothing
+    , maxItems = Nothing
+    , minItems = Nothing
+    , uniqueItems = Nothing
+    , enum = Nothing
+    , multipleOf = Nothing
+    }
+
+instance FromJSON Schema where
+  parseJSON = withObject "Schema" $ \o -> do
+    discriminator <- o .:? "discriminator"
+    xml <- o .:? "xml"
+    externalDocs <- o .:? "externalDocs"
+    example <- o .:? "example"
+    examples <- o .:? "examples" .!= []
+    title <- o .:? "title"
+    description <- o .:? "description"
+    required <- o .:? "required" .!= []
+    nullable <- o .:? "nullable"
+    allOf <- o .:? "allOf"
+    oneOf <- o .:? "oneOf"
+    anyOf <- o .:? "anyOf"
+    not <- o .:? "not"
+    properties <- o .:? "properties" .!= M.empty
+    additionalProperties <- o .:? "additionalProperties"
+    readOnly <- o .:? "readOnly"
+    writeOnly <- o .:? "writeOnly"
+    deprecated <- o .:? "deprecated"
+    maxProperties <- o .:? "maxProperties"
+    minProperties <- o .:? "minProperties"
+    def <- o .:? "default" -- "def" maps to "default" in JSON
+    schemaType <- o .:? "type"
+    format <- o .:? "format"
+    items <- o .:? "items"
+    maximum <- o .:? "maximum"
+    exclusiveMaximum <- o .:? "exclusiveMaximum"
+    minimum <- o .:? "minimum"
+    exclusiveMinimum <- o .:? "exclusiveMinimum"
+    maxLength <- o .:? "maxLength"
+    minLength <- o .:? "minLength"
+    pattern <- o .:? "pattern"
+    maxItems <- o .:? "maxItems"
+    minItems <- o .:? "minItems"
+    uniqueItems <- o .:? "uniqueItems"
+    enum <- o .:? "enum"
+    multipleOf <- o .:? "multipleOf"
+
+    pure Schema{..}
+
+instance ToJSON Schema where
+  toJSON Schema{not = not', ..} =
+    object $
+      filter
+        notNull
+        [ "discriminator" .= discriminator
+        , "xml" .= xml
+        , "externalDocs" .= externalDocs
+        , "example" .= example
+        , "examples" .= (if null examples then Nothing else Just examples)
+        , "title" .= title
+        , "description" .= description
+        , "required" .= (if null required then Nothing else Just required)
+        , "nullable" .= nullable
+        , "allOf" .= allOf
+        , "oneOf" .= oneOf
+        , "anyOf" .= anyOf
+        , "not" .= not'
+        , "properties" .= (if M.null properties then Nothing else Just properties)
+        , "additionalProperties" .= additionalProperties
+        , "readOnly" .= readOnly
+        , "writeOnly" .= writeOnly
+        , "deprecated" .= deprecated
+        , "maxProperties" .= maxProperties
+        , "minProperties" .= minProperties
+        , "default" .= def -- "def" in Haskell maps to "default" in JSON
+        , "type" .= schemaType
+        , "format" .= format
+        , "items" .= items
+        , "maximum" .= maximum
+        , "exclusiveMaximum" .= exclusiveMaximum
+        , "minimum" .= minimum
+        , "exclusiveMinimum" .= exclusiveMinimum
+        , "maxLength" .= maxLength
+        , "minLength" .= minLength
+        , "pattern" .= pattern
+        , "maxItems" .= maxItems
+        , "minItems" .= minItems
+        , "uniqueItems" .= uniqueItems
+        , "enum" .= enum
+        , "multipleOf" .= multipleOf
+        ]
+   where
+    notNull (_, Null) = False
+    notNull (_, Array a) = not (null a)
+    notNull (_, Object o) = not (null o)
+    notNull _ = True
+
+data Items = ItemObject (OrRef Schema) | ItemArray [OrRef Schema]
+  deriving (Show, Eq)
+
+instance FromJSON Items where
+  parseJSON v@(Array _) = ItemArray <$> parseJSON v
+  parseJSON v = ItemObject <$> parseJSON v
+
+instance ToJSON Items where
+  toJSON = \case
+    ItemObject schema -> toJSON schema
+    ItemArray schemas -> toJSON schemas
+
+data SchemaTypeValue
+  = SingleType SchemaType
+  | MultipleTypes (Set SchemaType)
+  deriving (Show, Eq)
+
+instance FromJSON SchemaTypeValue where
+  parseJSON v = case v of
+    String _ -> SingleType <$> parseJSON v
+    Array _ -> MultipleTypes . S.fromList <$> parseJSON v
+    _ -> fail "SchemaTypeValue must be a string or array"
+
+instance ToJSON SchemaTypeValue where
+  toJSON (SingleType t) = toJSON t
+  toJSON (MultipleTypes ts) = toJSON (S.toList ts)
+
+data AdditionalProperties
+  = Allowed Bool
+  | AdditionalSchema (OrRef Schema)
+  deriving (Show, Eq)
+
+instance FromJSON AdditionalProperties where
+  parseJSON v@(Bool b) = pure $ Allowed b
+  parseJSON v = AdditionalSchema <$> parseJSON v
+
+instance ToJSON AdditionalProperties where
+  toJSON (Allowed b) = toJSON b
+  toJSON (AdditionalSchema schema) = toJSON schema

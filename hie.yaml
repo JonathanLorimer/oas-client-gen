@@ -1,10 +1,10 @@
 cradle:
   cabal:
-    - path: "./src"
+    - path: "./oas-client-gen/src"
       component: "lib:oas-client-gen"
-    - path: "./base"
+    - path: "./oas-client-gen/base"
       component: "lib:oas-client-base"
-    - path: "./test"
+    - path: "./oas-client-gen/test"
       component: "test:oas-client-gen-tests"
-    - path: "./app"
+    - path: "./oas-client-gen/app"
       component: "exe:oas-client-gen"

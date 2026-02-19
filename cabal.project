@@ -1,2 +1,3 @@
 multi-repl: True
-packages: .
+packages: oas-client-gen/oas-client-gen.cabal
+          example/example.cabal

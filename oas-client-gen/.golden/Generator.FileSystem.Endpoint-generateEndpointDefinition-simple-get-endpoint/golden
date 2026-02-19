@@ -1,0 +1,11 @@
+getHealth :: Endpoint () () Text
+getHealth = Endpoint
+  { method = HTTP.GET
+  , path = const $ fold
+      [ "/health" ]
+  , toRequestBody = const L.empty
+  , fromResponseBody = \case
+      200 -> first (ParseError 200 . L8.pack) . A.eitherDecode
+      s -> Left . UnexpectedResponse s
+
+  }
