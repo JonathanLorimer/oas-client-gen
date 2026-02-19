@@ -22,7 +22,7 @@
           pkgs = nixpkgs.legacyPackages.${system};
           hsPkgs = pkgs.haskellPackages.override {
             overrides = hfinal: hprev: {
-              oas-client-gen = hfinal.callCabal2nix "oas-client-gen" ./. {};
+              oas-client-gen = hfinal.callCabal2nix "oas-client-gen" ./oas-client-gen {};
               deriving-aeson = hfinal.callHackage "deriving-aeson" "0.2.10" {};
             };
           };
