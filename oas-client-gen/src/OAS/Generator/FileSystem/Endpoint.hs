@@ -150,7 +150,7 @@ generateRequestDef (Just oasType) = "A.encode"
 -- | Generate the Haskell code for the response type
 generateResponseDef :: ResponseTypeInfo -> Text
 generateResponseDef (UnaryType _ EmptySchema) = "\\_ _ -> Right ()"
-generateResponseDef (UnaryType Default _) = "\\status -> first (ParseError status . L8.pack) . A.eitherDecode"
+generateResponseDef (UnaryType Default _) = "\\s -> first (ParseError s . L8.pack) . A.eitherDecode"
 generateResponseDef (UnaryType (ForStatus n) _) =
   let
     n' = T.pack $ show n
@@ -159,15 +159,15 @@ generateResponseDef (UnaryType (ForStatus n) _) =
       [ "\\case"
       , "      "
           <> n'
-          <> " -> \\bs -> first (ParseError "
+          <> " -> first (ParseError "
           <> n'
-          <> " . L8.pack) $ A.eitherDecode bs"
-      , "      " <> "s -> \\bs -> Left $ UnexpectedResponse s bs"
+          <> " . L8.pack) . A.eitherDecode"
+      , "      " <> "s -> Left . UnexpectedResponse s"
       ]
 generateResponseDef SumType{resultMap = responseTypes} =
   let
-    withDefaultCase (res, ctor) = "s -> \\bs -> " <> schemaResultDecoderWithStatus "s" "bs" ctor res
-    errorDefaultCase = "s -> \\bs -> Left $ UnexpectedResponse s bs"
+    withDefaultCase (res, ctor) = "s -> " <> schemaResultDecoderWithStatus "s" ctor res
+    errorDefaultCase = "s -> Left . UnexpectedResponse s"
     defaultCase = maybe errorDefaultCase withDefaultCase (M.lookup Default responseTypes)
 
     statusMap =
@@ -189,10 +189,14 @@ generateResponseDef SumType{resultMap = responseTypes} =
           <> "      "
           <> defaultCase
 
-schemaResultDecoderWithStatus :: Text -> Text -> Text -> SchemaResult -> Text
-schemaResultDecoderWithStatus statusVar bsVar ctor = \case
-  EmptySchema -> "pure " <> ctor
-  Type _ -> "bimap (ParseError " <> statusVar <> " . L8.pack) " <> "(" <> ctor <> " . A.eitherDecode) $ " <> bsVar
+schemaResultDecoderWithStatus :: Text -> Text -> SchemaResult -> Text
+schemaResultDecoderWithStatus status ctor = \case
+  EmptySchema -> "const $ pure " <> ctor
+  Type _ -> mkParseLine status ctor
+
+mkParseLine :: Text -> Text -> Text
+mkParseLine status ctor =
+  "bimap (ParseError " <> status <> " . L8.pack) " <> ctor <> " . A.eitherDecode"
 
 -- | Generate a case definition for a response type
 statusCaseDecoder :: Natural -> Text -> Text
@@ -203,7 +207,6 @@ statusCaseDecoder status ctor =
     fold
       [ "      "
       , s
-      , " -> \\bs ->"
-      , " bimap (ParseError " <> s <> " . L8.pack) " <> ctor
-      , " $ A.eitherDecode bs"
+      , " -> "
+      , mkParseLine s ctor
       ]
