@@ -24,3 +24,4 @@ cabal.project.local~
 .direnv/
 .claude/
 spec-samples/large/
+example/src/
