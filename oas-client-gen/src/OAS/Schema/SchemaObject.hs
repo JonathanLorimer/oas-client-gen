@@ -10,11 +10,87 @@ import Data.Scientific
 import Data.Set (Set)
 import Data.Set qualified as S
 import Data.Text (Text)
-import Deriving.Aeson
-import OAS.Aeson.Modifiers
 import OAS.Schema.Example (Example)
 import OAS.Schema.ExternalDocs (ExternalDocs)
 import OAS.Schema.Ref (OrRef)
+
+data SchemaType
+  = SchemaString
+  | SchemaNumber
+  | SchemaInteger
+  | SchemaBoolean
+  | SchemaArray
+  | SchemaNull
+  | SchemaObject
+  deriving (Show, Eq, Ord)
+
+instance FromJSON SchemaType where
+  parseJSON = withText "SchemaType" \case
+    "string" -> pure SchemaString
+    "number" -> pure SchemaNumber
+    "integer" -> pure SchemaInteger
+    "boolean" -> pure SchemaBoolean
+    "array" -> pure SchemaArray
+    "null" -> pure SchemaNull
+    "object" -> pure SchemaObject
+    t -> fail $ "Unknown SchemaType: " <> show t
+
+instance ToJSON SchemaType where
+  toJSON = \case
+    SchemaString -> "string"
+    SchemaNumber -> "number"
+    SchemaInteger -> "integer"
+    SchemaBoolean -> "boolean"
+    SchemaArray -> "array"
+    SchemaNull -> "null"
+    SchemaObject -> "object"
+
+data Discriminator = Discriminator
+  { propertyName :: Text
+  , mapping :: Map Text Text
+  }
+  deriving (Show, Eq)
+
+instance FromJSON Discriminator where
+  parseJSON = withObject "Discriminator" \o ->
+    Discriminator
+      <$> o .: "propertyName"
+      <*> o .: "mapping"
+
+instance ToJSON Discriminator where
+  toJSON Discriminator{..} = object
+    [ "propertyName" .= propertyName
+    , "mapping" .= mapping
+    ]
+
+data XMLObject = XMLObject
+  { name :: Maybe Text
+  , namespace :: Maybe Text
+  , prefix :: Maybe Text
+  , attribute :: Bool
+  , wrapped :: Bool
+  }
+  deriving (Show, Eq)
+
+instance FromJSON XMLObject where
+  parseJSON = withObject "XMLObject" \o ->
+    XMLObject
+      <$> o .:? "name"
+      <*> o .:? "namespace"
+      <*> o .:? "prefix"
+      <*> o .: "attribute"
+      <*> o .: "wrapped"
+
+instance ToJSON XMLObject where
+  toJSON XMLObject{..} = object $ catMaybes
+    [ ("name" .=) <$> name
+    , ("namespace" .=) <$> namespace
+    , ("prefix" .=) <$> prefix
+    , Just $ "attribute" .= attribute
+    , Just $ "wrapped" .= wrapped
+    ]
+   where
+    catMaybes = foldr (\x acc -> maybe acc (: acc) x) []
 
 data Schema = Schema
   { discriminator :: Maybe Discriminator
@@ -193,29 +269,15 @@ instance FromJSON Items where
   parseJSON v@(Array _) = ItemArray <$> parseJSON v
   parseJSON v = ItemObject <$> parseJSON v
 
--- Custom ToJSON instance
 instance ToJSON Items where
   toJSON = \case
     ItemObject schema -> toJSON schema
     ItemArray schemas -> toJSON schemas
 
-data SchemaType
-  = SchemaString
-  | SchemaNumber
-  | SchemaInteger
-  | SchemaBoolean
-  | SchemaArray
-  | SchemaNull
-  | SchemaObject
-  deriving (Show, Eq, Ord, Generic)
-  deriving
-    (FromJSON, ToJSON)
-    via CustomJSON '[ConstructorTagModifier '[StripPrefix "Schema", ToLower]] SchemaType
-
 data SchemaTypeValue
   = SingleType SchemaType
   | MultipleTypes (Set SchemaType)
-  deriving (Show, Eq, Generic)
+  deriving (Show, Eq)
 
 instance FromJSON SchemaTypeValue where
   parseJSON v = case v of
@@ -227,31 +289,10 @@ instance ToJSON SchemaTypeValue where
   toJSON (SingleType t) = toJSON t
   toJSON (MultipleTypes ts) = toJSON (S.toList ts)
 
-data Discriminator = Discriminator
-  { propertyName :: Text
-  , mapping :: Map Text Text
-  }
-  deriving (Show, Eq, Generic)
-  deriving
-    (FromJSON, ToJSON)
-    via CustomJSON '[] Discriminator
-
-data XMLObject = XMLObject
-  { name :: Maybe Text
-  , namespace :: Maybe Text
-  , prefix :: Maybe Text
-  , attribute :: Bool
-  , wrapped :: Bool
-  }
-  deriving (Show, Eq, Generic)
-  deriving
-    (FromJSON, ToJSON)
-    via CustomJSON '[OmitNothingFields] XMLObject
-
 data AdditionalProperties
   = Allowed Bool
   | AdditionalSchema (OrRef Schema)
-  deriving (Show, Eq, Generic)
+  deriving (Show, Eq)
 
 instance FromJSON AdditionalProperties where
   parseJSON v@(Bool b) = pure $ Allowed b

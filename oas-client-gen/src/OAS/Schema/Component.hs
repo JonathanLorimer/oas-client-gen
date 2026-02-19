@@ -2,9 +2,10 @@
 
 module OAS.Schema.Component where
 
+import Data.Aeson
 import Data.Map.Strict (Map)
+import Data.Maybe (catMaybes)
 import Data.Text (Text)
-import Deriving.Aeson
 import OAS.Schema.Example (Example)
 import OAS.Schema.ExternalDocs (ExternalDocs)
 import OAS.Schema.Header (Header)
@@ -30,7 +31,34 @@ data ComponentObject = ComponentObject
   , pathItems :: Maybe (Map Text Path)
   , externalDocs :: Maybe ExternalDocs
   }
-  deriving (Show, Eq, Generic)
-  deriving
-    (FromJSON, ToJSON)
-    via CustomJSON '[OmitNothingFields] ComponentObject
+  deriving (Show, Eq)
+
+instance FromJSON ComponentObject where
+  parseJSON = withObject "ComponentObject" \o ->
+    ComponentObject
+      <$> o .:? "schemas"
+      <*> o .:? "responses"
+      <*> o .:? "parameters"
+      <*> o .:? "examples"
+      <*> o .:? "requestBodies"
+      <*> o .:? "headers"
+      <*> o .:? "securitySchemes"
+      <*> o .:? "links"
+      <*> o .:? "callbacks"
+      <*> o .:? "pathItems"
+      <*> o .:? "externalDocs"
+
+instance ToJSON ComponentObject where
+  toJSON ComponentObject{..} = object $ catMaybes
+    [ ("schemas" .=) <$> schemas
+    , ("responses" .=) <$> responses
+    , ("parameters" .=) <$> parameters
+    , ("examples" .=) <$> examples
+    , ("requestBodies" .=) <$> requestBodies
+    , ("headers" .=) <$> headers
+    , ("securitySchemes" .=) <$> securitySchemes
+    , ("links" .=) <$> links
+    , ("callbacks" .=) <$> callbacks
+    , ("pathItems" .=) <$> pathItems
+    , ("externalDocs" .=) <$> externalDocs
+    ]

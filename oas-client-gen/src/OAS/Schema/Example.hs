@@ -2,9 +2,10 @@
 
 module OAS.Schema.Example where
 
+import Data.Aeson
 import Data.Aeson.Types (Value)
-import Data.Text
-import Deriving.Aeson
+import Data.Maybe (catMaybes)
+import Data.Text (Text)
 
 data Example = Example
   { summary :: Maybe Text
@@ -12,7 +13,20 @@ data Example = Example
   , value :: Maybe Value
   , externalValue :: Maybe Text
   }
-  deriving (Show, Eq, Generic)
-  deriving
-    (FromJSON, ToJSON)
-    via CustomJSON '[OmitNothingFields] Example
+  deriving (Show, Eq)
+
+instance FromJSON Example where
+  parseJSON = withObject "Example" \o ->
+    Example
+      <$> o .:? "summary"
+      <*> o .:? "description"
+      <*> o .:? "value"
+      <*> o .:? "externalValue"
+
+instance ToJSON Example where
+  toJSON Example{..} = object $ catMaybes
+    [ ("summary" .=) <$> summary
+    , ("description" .=) <$> description
+    , ("value" .=) <$> value
+    , ("externalValue" .=) <$> externalValue
+    ]

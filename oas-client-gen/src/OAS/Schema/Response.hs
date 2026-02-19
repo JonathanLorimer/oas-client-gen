@@ -5,10 +5,9 @@ module OAS.Schema.Response where
 import Data.Aeson
 import Data.Aeson.Types (toJSONKeyText, typeMismatch)
 import Data.Map.Strict (Map)
+import Data.Maybe (catMaybes)
 import Data.Text (Text)
 import Data.Text qualified as T
-import Deriving.Aeson
-import Network.HTTP.Types.Status (Status)
 import Numeric.Natural (Natural)
 import OAS.Schema.Header (Header, MediaType)
 import OAS.Schema.Link (Link)
@@ -21,13 +20,26 @@ data Response = Response
   , content :: Maybe (Map Text MediaType)
   , links :: Maybe (Map Text (OrRef Link))
   }
-  deriving (Show, Eq, Generic)
-  deriving
-    (FromJSON, ToJSON)
-    via CustomJSON '[OmitNothingFields] Response
+  deriving (Show, Eq)
+
+instance FromJSON Response where
+  parseJSON = withObject "Response" \o ->
+    Response
+      <$> o .: "description"
+      <*> o .:? "headers"
+      <*> o .:? "content"
+      <*> o .:? "links"
+
+instance ToJSON Response where
+  toJSON Response{..} = object $ catMaybes
+    [ Just $ "description" .= description
+    , ("headers" .=) <$> headers
+    , ("content" .=) <$> content
+    , ("links" .=) <$> links
+    ]
 
 data ResponseType = Default | ForStatus Natural
-  deriving (Eq, Ord, Show, Generic)
+  deriving (Eq, Ord, Show)
 
 instance FromJSONKey ResponseType where
   fromJSONKey = FromJSONKeyText parseText

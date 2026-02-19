@@ -2,8 +2,9 @@
 
 module OAS.Schema.Tag where
 
+import Data.Aeson
+import Data.Maybe (catMaybes)
 import Data.Text (Text)
-import Deriving.Aeson
 import OAS.Schema.ExternalDocs (ExternalDocs)
 
 data Tag = Tag
@@ -11,7 +12,18 @@ data Tag = Tag
   , description :: Maybe Text
   , externalDocs :: ExternalDocs
   }
-  deriving (Show, Eq, Generic)
-  deriving
-    (FromJSON, ToJSON)
-    via CustomJSON '[OmitNothingFields] Tag
+  deriving (Show, Eq)
+
+instance FromJSON Tag where
+  parseJSON = withObject "Tag" \o ->
+    Tag
+      <$> o .: "name"
+      <*> o .:? "description"
+      <*> o .: "externalDocs"
+
+instance ToJSON Tag where
+  toJSON Tag{..} = object $ catMaybes
+    [ Just $ "name" .= name
+    , ("description" .=) <$> description
+    , Just $ "externalDocs" .= externalDocs
+    ]

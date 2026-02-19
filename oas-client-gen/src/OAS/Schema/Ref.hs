@@ -5,14 +5,13 @@ module OAS.Schema.Ref where
 import Data.Aeson
 import Data.Aeson.KeyMap qualified as KM
 import Data.Text (Text)
-import Deriving.Aeson
 
 data Ref = Ref
   { ref :: Text
   , summary :: Maybe Text
   , description :: Maybe Text
   }
-  deriving (Show, Eq, Generic)
+  deriving (Show, Eq)
 
 instance FromJSON Ref where
   parseJSON = withObject "Ref" $ \o -> do

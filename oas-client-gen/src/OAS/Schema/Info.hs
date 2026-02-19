@@ -2,9 +2,9 @@
 
 module OAS.Schema.Info where
 
-import Data.Map.Strict (Map)
+import Data.Aeson
+import Data.Maybe (catMaybes)
 import Data.Text (Text)
-import Deriving.Aeson
 import OAS.Schema.Path (Paths)
 
 -- | <https://swagger.io/specification/#info-object>
@@ -18,10 +18,31 @@ data Info = Info
   , version :: Text
   , paths :: Maybe Paths
   }
-  deriving (Show, Eq, Generic)
-  deriving
-    (FromJSON, ToJSON)
-    via CustomJSON '[OmitNothingFields] Info
+  deriving (Show, Eq)
+
+instance FromJSON Info where
+  parseJSON = withObject "Info" \o ->
+    Info
+      <$> o .: "title"
+      <*> o .:? "summary"
+      <*> o .:? "description"
+      <*> o .:? "termsOfService"
+      <*> o .:? "contact"
+      <*> o .:? "license"
+      <*> o .: "version"
+      <*> o .:? "paths"
+
+instance ToJSON Info where
+  toJSON Info{..} = object $ catMaybes
+    [ Just $ "title" .= title
+    , ("summary" .=) <$> summary
+    , ("description" .=) <$> description
+    , ("termsOfService" .=) <$> termsOfService
+    , ("contact" .=) <$> contact
+    , ("license" .=) <$> license
+    , Just $ "version" .= version
+    , ("paths" .=) <$> paths
+    ]
 
 -- | <https://swagger.io/specification/#contact-object>
 data Contact = Contact
@@ -29,10 +50,21 @@ data Contact = Contact
   , url :: Maybe Text
   , email :: Maybe Text
   }
-  deriving (Show, Eq, Generic)
-  deriving
-    (FromJSON, ToJSON)
-    via CustomJSON '[OmitNothingFields] Contact
+  deriving (Show, Eq)
+
+instance FromJSON Contact where
+  parseJSON = withObject "Contact" \o ->
+    Contact
+      <$> o .:? "name"
+      <*> o .:? "url"
+      <*> o .:? "email"
+
+instance ToJSON Contact where
+  toJSON Contact{..} = object $ catMaybes
+    [ ("name" .=) <$> name
+    , ("url" .=) <$> url
+    , ("email" .=) <$> email
+    ]
 
 -- | <https://swagger.io/specification/#license-object>
 data License = License
@@ -40,7 +72,18 @@ data License = License
   , identifier :: Maybe Text
   , email :: Maybe Text
   }
-  deriving (Show, Eq, Generic)
-  deriving
-    (FromJSON, ToJSON)
-    via CustomJSON '[OmitNothingFields] License
+  deriving (Show, Eq)
+
+instance FromJSON License where
+  parseJSON = withObject "License" \o ->
+    License
+      <$> o .:? "name"
+      <*> o .:? "identifier"
+      <*> o .:? "email"
+
+instance ToJSON License where
+  toJSON License{..} = object $ catMaybes
+    [ ("name" .=) <$> name
+    , ("identifier" .=) <$> identifier
+    , ("email" .=) <$> email
+    ]

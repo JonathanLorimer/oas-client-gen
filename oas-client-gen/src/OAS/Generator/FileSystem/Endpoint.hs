@@ -166,7 +166,7 @@ generateResponseDef (UnaryType (ForStatus n) _) =
       ]
 generateResponseDef SumType{resultMap = responseTypes} =
   let
-    withDefaultCase (res, ctor) = "status -> \\bs -> " <> schemaResultDecoderWithStatus "status" ctor res
+    withDefaultCase (res, ctor) = "s -> \\bs -> " <> schemaResultDecoderWithStatus "s" "bs" ctor res
     errorDefaultCase = "s -> \\bs -> Left $ UnexpectedResponse s bs"
     defaultCase = maybe errorDefaultCase withDefaultCase (M.lookup Default responseTypes)
 
@@ -189,15 +189,10 @@ generateResponseDef SumType{resultMap = responseTypes} =
           <> "      "
           <> defaultCase
 
-schemaResultDecoder :: Text -> SchemaResult -> Text
-schemaResultDecoder ctor = \case
+schemaResultDecoderWithStatus :: Text -> Text -> Text -> SchemaResult -> Text
+schemaResultDecoderWithStatus statusVar bsVar ctor = \case
   EmptySchema -> "pure " <> ctor
-  Type _ -> "bimap (ParseError status . L8.pack) " <> ctor <> " . A.eitherDecode"
-
-schemaResultDecoderWithStatus :: Text -> Text -> SchemaResult -> Text
-schemaResultDecoderWithStatus statusVar ctor = \case
-  EmptySchema -> "pure " <> ctor
-  Type _ -> "bimap (ParseError " <> statusVar <> " . L8.pack) " <> ctor <> " . A.eitherDecode"
+  Type _ -> "bimap (ParseError " <> statusVar <> " . L8.pack) " <> "(" <> ctor <> " . A.eitherDecode) $ " <> bsVar
 
 -- | Generate a case definition for a response type
 statusCaseDecoder :: Natural -> Text -> Text

@@ -1,0 +1,8 @@
+postPredict :: Endpoint () InputData ()
+postPredict = Endpoint
+  { method = HTTP.POST
+  , path = const $ fold
+      [ "/predict" ]
+  , toRequestBody = A.encode
+  , fromResponseBody = \_ _ -> Right ()
+  }
